@@ -17,7 +17,7 @@
 2. 安装依赖库：
    ```bash
    pip install pyinstaller
-下载本仓库或复制PyInstallerGUI.py文件
+下载本仓库或复制PyInstallerGUI.py文件 /h
 若是不想安装依赖库可以试试已经打包好的PyInstallerGUI.exe? 
 使用方法
 运行程序：
