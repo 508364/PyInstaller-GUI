@@ -1,82 +1,117 @@
-## 英文版 README.en.md
-
-```markdown
 # PyInstaller GUI Packaging Tool
 
-This is a Python-based graphical user interface tool for quickly packaging Python scripts using PyInstaller. It allows users to configure common packaging options through a simple interface without having to remember complex command-line arguments.
+A Python-based graphical user interface for quickly packaging Python scripts with PyInstaller. Configure common options through an intuitive UI without memorizing complex CLI arguments.
 
 ## Features
 
-- **Easy to use**: Intuitive graphical interface, no command-line knowledge required.
-- **Common options**:
-  - Support for one-file packaging (-F) and directory packaging (-D).
-  - Console window settings (show console or no console).
-  - Set the icon for the generated executable (-i).
+- Easy to use： No command-line knowledge required.
+- Common options：
+  - One-file (-F) and one-folder (-D) packaging.
+  - Console mode： show console or windowed (no console).
+  - Set executable icon (-i).
   - Custom output directory (--distpath).
-  - Custom output filename (-n).
-- **Resource management**: Add additional data files (--add-data) and binary files (--add-binary).
-- **Real-time logging**: Real-time output display during the packaging process for easy debugging.
-- **Cleanup function**: One-click cleanup of temporary build files (build directory, spec files, etc.).
-- **UPX support**: UPX compression enabled by default, can be manually disabled.
+  - Custom output name (-n). When you select the main script， the name auto-fills to the script filename.
+- Unified Additional Resources：
+  - Add files or directories in one place.
+  - Default placement：
+    - Directories are placed as a same-named folder in the runtime temp root.
+    - Files are placed directly in the runtime temp root (keeping original filename).
+  - Custom destination mapping：
+    - Use “source|dest” or “source＝>dest” (e.g.， C：\\data\\assets|res or images\\logo.png|res\\img).
+- Real-time logging：
+  - Live output during build.
+  - Automatically switches to the Logs tab after starting the build.
+  - Opens the output directory on success.
+- Cleanup：
+  - One-click removal of build artifacts (build folder， spec file， _ _pycache_ _， etc.).
+- UPX support with adjustable level：
+  - Slider from 1–10 (10 is treated as 9).
+  - Performed as a post-build step to avoid conflicts with PyInstaller’s built-in UPX (we force --noupx in the build command).
+  - Auto-detects／installs UPX when possible； gracefully skips with a log note if unavailable.
+  - Supports an exclude list (filenames or patterns) to skip specific binaries.
+- Compatibility adjustments：
+  - Automatically detects the local PyInstaller version.
+  - Windows WinSxS options are only shown when PyInstaller ＜ 6.0 (these options were removed in v6+).
+  - Removed the standalone --noarchive switch； the Debug level still supports “noarchive” via -d noarchive.
 
 ## Installation
 
-1. Ensure Python (recommended Python 3.8+) is installed.
-2. Install PyInstaller:
-   ```bash
-   pip install pyinstaller
-Download the PyInstallerGUI.py file from this repository.
-Using Precompiled Version (for Windows)
-We provide a precompiled executable that does not require a Python environment:
+1. Ensure Python is installed (recommended Python 3.8+).
+2. Install PyInstaller：
+  ```bash
+  pip install pyinstaller
+  ```
+3. Download and run the GUI tool from this repository， or use the precompiled version (Windows).
 
-Visit the releases page to download PyInstallerGUI.exe.
-Double-click to run.
-Usage
-​​Run the program​​:
-If using the Python script:
-python PyInstallerGUI.py
-If using the precompiled version, double-click PyInstallerGUI.exe.
-​​Configure packaging options​​:
-Click the "Browse" button to select the Python script (.py file) to package.
-Set the output name (optional, default is the script filename).
-Set the output directory (optional, default is the dist folder in the current directory).
-Select packaging mode:
-​​One-file mode​​: Generates a single executable file (.exe).
-​​Directory mode​​: Generates a directory containing the executable and dependent files.
-Console options:
-​​Show console​​: Suitable for command-line programs.
-​​No console​​: Suitable for GUI programs (e.g., pygame, PyQt).
-Click the "Browse" button next to the icon to select an icon file (.ico format, optional).
-(Optional) Add data files (e.g., images, config files) in the advanced options, in the format source:destination.
-(Optional) Enter other PyInstaller supported arguments in the "Extra command line arguments" field.
-​​Start packaging​​:
-Click the "Start Build" button and wait for the process to complete.
-Monitor the real-time output in the log area at the bottom.
-​​Get the output​​:
-After successful packaging, find the generated executable in the output directory.
-​​Clean project​​:
-After packaging, you can click the "Clean Project" button to remove temporary files.
-Notes
-The packaging process may take several minutes, depending on the size and complexity of the project.
-Ensure that any additional files (e.g., icons, data files) have correct paths.
-Programs packaged in one-file mode have a longer startup time (due to extraction to a temporary directory).
-If packaging fails, check the log output for error information.
-FAQ
-Why is the packaged program so large?
-PyInstaller includes the Python interpreter and all dependency libraries. This is normal. To reduce the size:
+Using the precompiled version (Windows)：
+- Download the .exe from the Releases page.
+- Double-click to run (no Python environment required).
 
-Use UPX compression (enabled by default in this tool).
-Minimize the use of dependency libraries (avoid large libraries).
-Use a virtual environment to avoid including unnecessary libraries.
-Why doesn't the packaged program run on another computer?
-The target machine may be missing necessary runtime environments (e.g., VC++ runtime libraries). Try:
+## Usage
 
-Installing the appropriate runtime environment on the target machine (e.g., Microsoft Visual C++ Redistributable).
-If missing specific files, try adding them using --add-data.
-Why is the program detected as a virus?
-Due to PyInstaller's packaging mechanism, the generated executable may sometimes be falsely flagged by antivirus software. You can:
+Run the program
+- Python script：
+  ```bash
+  python ＜your_gui_script>.py
+  ```
+- Precompiled version： double-click the .exe.
 
-Submit a false positive report to the antivirus vendor.
-Code-sign the generated executable (requires purchasing a digital certificate).
-Supported operating systems?
-Currently developed and tested mainly on Windows, but core features should support cross-platform (macOS/Linux). Feedback for other platforms is welcome.
+Configure build options
+- Click “Browse” to choose the Python script (.py). Output name auto-fills with the script filename (you can edit it).
+- Set output directory (optional)， default is dist in the current directory.
+- Select packaging mode：
+  - One-file： produces a single executable (.exe).
+  - One-folder： produces a folder with the executable and dependencies.
+- Console options：
+  - Show console： for CLI apps.
+  - No console： for GUI apps (e.g.， pygame， PyQt).
+- Icon： click “Browse” next to Icon to select a .ico file (optional).
+
+Additional resources
+- Enter a source path (file or directory) and click “Add”：
+  - Directories become same-named folders at runtime temp root.
+  - Files go directly under the runtime temp root (keep filename).
+- Custom destination examples：
+  - C：\\data\\assets|res
+  - images\\logo.png|res\\img
+  - Also supports “＝>”： src＝>dest
+- You can still add any extra PyInstaller arguments in “Extra arguments” (e.g.， more --add-data).
+
+UPX compression
+- Choose a level 1–10 (default 5； 10 acts as 9).
+- After a successful build， the tool runs UPX compression； if UPX is not found， it attempts installation or logs a skip.
+- Add patterns to the “UPX exclude” list to skip specific files (e.g.， *.dll).
+
+Start build
+- Click “Start Build”； the UI switches to the Logs tab to show real-time output.
+- On success， the output directory is opened.
+
+Clean project
+- Click “Clean Project” to remove build， spec， and _ _pycache_ _.
+
+## Notes
+
+- Build time depends on project size and dependencies. One-file mode has longer startup due to extraction to a temp directory.
+- Ensure paths for any additional files are correct.
+- WinSxS-related options on Windows appear only when PyInstaller ＜ 6.0 (removed in v6+).
+
+## FAQ
+
+Why is the packaged program large？
+- PyInstaller bundles the Python interpreter and all dependencies. To reduce size：
+  - Use UPX compression (enabled here with adjustable level).
+  - Trim unnecessary dependencies.
+  - Build in a virtual environment to avoid bundling unrelated packages.
+
+Why doesn’t the packaged program run on another computer？
+- The target machine may lack required runtimes (e.g.， VC++). Try：
+  - Installing Microsoft Visual C++ Redistributable.
+  - Adding missing files via --add-data.
+
+Why is the program flagged by antivirus？
+- Packaged executables can be false-flagged. Consider：
+  - Submitting a false-positive report.
+  - Code-signing the executable (requires a certificate).
+
+Supported operating systems？
+- Primarily developed and tested on Windows； core features should work cross-platform (macOS／Linux). Feedback is welcome.
