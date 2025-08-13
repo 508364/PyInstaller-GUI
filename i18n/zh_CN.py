@@ -1,0 +1,92 @@
+# -*- coding: utf-8 -*-
+STRINGS = {
+    "app_title": "PyInstaller 快速打包工具",
+    "tab_basic": "基本设置",
+    "tab_assets": "资源与导入",
+    "tab_advanced": "高级选项",
+    "tab_logs": "日志",
+
+    "group_script_settings": "脚本设置",
+    "group_build_options": "打包选项",
+    "group_data": "附加资源文件（源路径:目标路径）",
+    "group_binaries": "附加二进制（源路径:目标路径）",
+    "group_hidden_imports": "隐藏导入模块",
+    "group_excludes": "排除模块",
+    "group_hooks_dir": "额外 Hooks 目录",
+    "group_runtime_hooks": "运行时 Hook 文件",
+    "group_upx_exclude": "UPX 排除（模式）",
+    "group_other_switches": "其他开关",
+
+    "label_main_script": "主脚本文件:",
+    "label_output_name": "输出名称:",
+    "label_output_dir": "输出目录:",
+    "label_pack_mode": "打包模式:",
+    "label_console": "控制台:",
+    "label_app_icon": "应用图标:",
+    "label_version_file": "版本信息文件:",
+    "label_debug_level": "调试等级:",
+    "label_runtime_tmpdir": "运行时临时目录 (--runtime-tmpdir)",
+    "label_extra_args": "额外命令行参数:",
+
+    "radio_onefile": "单文件模式 (-F)",
+    "radio_onedir": "目录模式 (-D)",
+    "radio_console": "显示控制台 (-c)",
+    "radio_windowed": "无控制台 (-w)",
+
+    "check_use_upx": "使用 UPX 压缩（推荐）",
+    "check_noarchive": "禁用归档 (--noarchive)",
+    "check_disable_windowed_tb": "禁用 Windowed 回溯弹窗 (--disable-windowed-traceback)",
+    "check_win_no_prefer_redirects": "win-no-prefer-redirects",
+    "check_win_private_assemblies": "win-private-assemblies",
+
+    "debug_off": "关闭",
+    "debug_all": "all",
+    "debug_imports": "imports",
+    "debug_noarchive": "noarchive",
+
+    "btn_browse": "浏览...",
+    "btn_add": "添加",
+    "btn_clear": "清除",
+    "btn_build": "开始打包",
+    "btn_clean": "清理项目",
+    "btn_exit": "退出",
+
+    "title_select_version_file": "选择版本信息文件",
+    "filter_py": "Python 脚本",
+    "filter_all": "所有文件",
+    "filter_ico": "图标文件",
+    "filter_version": "版本信息文件",
+
+    "title_error": "错误",
+    "error_select_script": "请选择要打包的 Python 脚本",
+
+    "warn_icon_missing": "警告: 图标文件不存在，已忽略 - {path}",
+    "warn_version_missing": "警告: 版本信息文件不存在，已忽略 - {path}",
+
+    "err_extra_args": "错误: 无法解析额外参数 - {err}",
+    "err_script_missing": "错误: 脚本文件不存在 - {path}",
+
+    "log_ready": "PyInstaller GUI 打包工具已就绪",
+    "log_select_script": "请选择 Python 脚本并配置打包选项",
+    "log_building": "打包中...",
+    "log_start_build": "开始打包过程...",
+    "log_build_success": "打包成功完成!",
+    "log_output_dir": "输出目录: {path}",
+    "log_open_dir_failed": "打开输出目录失败: {err}",
+    "log_build_failed": "打包失败! 错误代码: {code}",
+    "log_full_cmd": "完整命令列表:",
+
+    "msg_tip_windowed": "提示：当前为无控制台模式，若运行期异常将以弹窗形式显示回溯。",
+
+    "log_cleaning": "清理构建文件...",
+    "log_deleted": "已删除: {name}",
+    "log_clean_done": "清理完成",
+    "log_clean_error": "清理时出错: {err}",
+
+    "upx_not_found_try_install": "未检测到 UPX，尝试自动安装：pip install upx",
+    "upx_install_default_failed": "通过默认源安装 UPX 失败：{err}\n尝试使用清华镜像...",
+    "upx_install_ts_fail": "通过清华镜像安装 UPX 失败：{err}",
+    "upx_installed_ok": "UPX 安装成功，已可用。",
+    "upx_added_to_path": "已定位并添加 UPX 到 PATH: {path}",
+    "upx_unavailable_disable": "未能自动配置 UPX，将禁用 UPX 压缩（等价 --noupx）。",
+}

@@ -1,0 +1,92 @@
+# -*- coding: utf-8 -*-
+STRINGS = {
+    "app_title": "PyInstaller Quick Pack Tool",
+    "tab_basic": "Basic",
+    "tab_assets": "Assets & Imports",
+    "tab_advanced": "Advanced",
+    "tab_logs": "Logs",
+
+    "group_script_settings": "Script Settings",
+    "group_build_options": "Build Options",
+    "group_data": "Additional Data (source:dest)",
+    "group_binaries": "Additional Binaries (source:dest)",
+    "group_hidden_imports": "Hidden Imports",
+    "group_excludes": "Excluded Modules",
+    "group_hooks_dir": "Additional Hooks Dirs",
+    "group_runtime_hooks": "Runtime Hook Files",
+    "group_upx_exclude": "UPX Exclude (pattern)",
+    "group_other_switches": "Other Switches",
+
+    "label_main_script": "Main script:",
+    "label_output_name": "Output name:",
+    "label_output_dir": "Output dir:",
+    "label_pack_mode": "Packaging mode:",
+    "label_console": "Console:",
+    "label_app_icon": "App icon:",
+    "label_version_file": "Version info file:",
+    "label_debug_level": "Debug level:",
+    "label_runtime_tmpdir": "Runtime temp dir (--runtime-tmpdir)",
+    "label_extra_args": "Extra CLI args:",
+
+    "radio_onefile": "One-file (-F)",
+    "radio_onedir": "One-dir (-D)",
+    "radio_console": "Console (-c)",
+    "radio_windowed": "Windowed (-w)",
+
+    "check_use_upx": "Use UPX compression (recommended)",
+    "check_noarchive": "Disable archive (--noarchive)",
+    "check_disable_windowed_tb": "Disable windowed traceback (--disable-windowed-traceback)",
+    "check_win_no_prefer_redirects": "win-no-prefer-redirects",
+    "check_win_private_assemblies": "win-private-assemblies",
+
+    "debug_off": "Off",
+    "debug_all": "all",
+    "debug_imports": "imports",
+    "debug_noarchive": "noarchive",
+
+    "btn_browse": "Browse...",
+    "btn_add": "Add",
+    "btn_clear": "Clear",
+    "btn_build": "Build",
+    "btn_clean": "Clean",
+    "btn_exit": "Exit",
+
+    "title_select_version_file": "Select version info file",
+    "filter_py": "Python script",
+    "filter_all": "All files",
+    "filter_ico": "Icon file",
+    "filter_version": "Version info file",
+
+    "title_error": "Error",
+    "error_select_script": "Please select the Python script to build",
+
+    "warn_icon_missing": "Warning: icon file not found, skipped - {path}",
+    "warn_version_missing": "Warning: version info file not found, skipped - {path}",
+
+    "err_extra_args": "Error: cannot parse extra args - {err}",
+    "err_script_missing": "Error: script file not found - {path}",
+
+    "log_ready": "PyInstaller GUI is ready",
+    "log_select_script": "Select a Python script and configure build options",
+    "log_building": "Building...",
+    "log_start_build": "Start building...",
+    "log_build_success": "Build finished successfully!",
+    "log_output_dir": "Output dir: {path}",
+    "log_open_dir_failed": "Failed to open output dir: {err}",
+    "log_build_failed": "Build failed! Exit code: {code}",
+    "log_full_cmd": "Full command:",
+
+    "msg_tip_windowed": "Tip: running in windowed mode; exceptions will show in a message box.",
+
+    "log_cleaning": "Cleaning build files...",
+    "log_deleted": "Deleted: {name}",
+    "log_clean_done": "Clean finished",
+    "log_clean_error": "Error during clean: {err}",
+
+    "upx_not_found_try_install": "UPX not found, trying to install automatically: pip install upx",
+    "upx_install_default_failed": "Installing UPX from default index failed: {err}\nTrying Tsinghua mirror...",
+    "upx_install_ts_fail": "Installing UPX from Tsinghua mirror failed: {err}",
+    "upx_installed_ok": "UPX installed and available.",
+    "upx_added_to_path": "Found UPX and added to PATH: {path}",
+    "upx_unavailable_disable": "Could not configure UPX; UPX compression will be disabled (--noupx).",
+}
