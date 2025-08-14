@@ -7,7 +7,7 @@ This is a Python-based graphical user interface tool for quickly packaging Pytho
 
 ## Features
 
-- **Easy to use**: Intuitive graphical interface, no command-line knowledge required.
+- **Improved user interface**: Single-column layout design with overall scrollbar and mouse wheel support for a better user experience.
 - **Common options**:
   - Support for one-file packaging (-F) and directory packaging (-D).
   - Console window settings (show console or no console).
