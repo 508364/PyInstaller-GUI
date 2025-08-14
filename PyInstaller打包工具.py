@@ -200,16 +200,13 @@ class InstallWaitingDialog(tk.Toplevel):
         self.resizable(False, False)
         # 禁用右上角关闭按钮
         self.protocol("WM_DELETE_WINDOW", lambda: None)
-        # 置顶 & 模态
+        # 置顶 & 模态（父窗未映射时不设 transient，强制顶置+lift）
         try:
-            # 父窗未映射时，不要设置 transient 到隐藏父窗
             if parent and parent.winfo_ismapped():
                 self.transient(parent)
             self.grab_set()
-            # 硬置顶 + 抬到最前，确保可见
             self.attributes("-topmost", True)
             self.lift()
-            # 稍后撤销置顶，避免影响后续窗口层级
             self.after(300, lambda: self.attributes("-topmost", False))
         except Exception:
             pass
@@ -237,7 +234,7 @@ class InstallWaitingDialog(tk.Toplevel):
         try:
             self.update_idletasks()
             # 如果父窗已隐藏，改用屏幕中心
-            if not parent.winfo_ismapped():
+            if not parent or not parent.winfo_ismapped():
                 sw = self.winfo_screenwidth()
                 sh = self.winfo_screenheight()
                 w = self.winfo_reqwidth()
@@ -255,13 +252,82 @@ class InstallWaitingDialog(tk.Toplevel):
             pass
 
 
-def install_pyinstaller_waiting(root, lang_code, _):
-    """显示不可关闭的等待窗口，不显示百分比。成功返回 True，失败返回 False。"""
-    # 文案（若 key 不存在，则按语言给出兜底）
+# ---------------- 冻结态（exe）支持：外部 PyInstaller 与 Python 处理 ----------------
+def is_frozen_app() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+def _split_cmd(cmd_str: str):
+    try:
+        return shlex.split(cmd_str)
+    except Exception:
+        return [cmd_str]
+
+def get_python_candidates() -> list:
+    # 优先顺序：Windows 上 'py -3' → 'python' → 'python3'；其它平台 'python3' → 'python'
+    if sys.platform.startswith('win'):
+        return [_split_cmd("py -3"), _split_cmd("python"), _split_cmd("python3")]
+    else:
+        return [_split_cmd("python3"), _split_cmd("python")]
+
+def external_pyinstaller_probe():
+    """
+    返回 (mode, value)
+      - ('exe', 'pyinstaller_path') 表示直接可调用 pyinstaller(.exe)
+      - ('py',  ['python','-m','PyInstaller']) 表示可用外部 Python -m PyInstaller
+      - (None, None) 表示未找到
+    """
+    exe = shutil.which("pyinstaller")
+    if exe:
+        return ("exe", exe)
+
+    for py_cmd in get_python_candidates():
+        try:
+            res = subprocess.run(py_cmd + ["-m", "PyInstaller", "--version"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 text=True, timeout=8)
+            if res.returncode == 0 and (res.stdout or "").strip():
+                return ("py", py_cmd)
+        except Exception:
+            pass
+    return (None, None)
+
+def ensure_pip_then_install(py_cmd: list, pkg: str, use_tsinghua: bool) -> bool:
+    """
+    在外部 Python 上安装 pkg。若 pip 缺失，先 ensurepip。
+    """
+    def _run(cmd):
+        try:
+            creationflags = 0
+            if sys.platform.startswith('win') and hasattr(subprocess, "CREATE_NO_WINDOW"):
+                creationflags = subprocess.CREATE_NO_WINDOW
+            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               text=True, creationflags=creationflags)
+            return p.returncode == 0
+        except Exception:
+            return False
+
+    # 先试 pip 安装
+    base = py_cmd + ["-m", "pip", "install", "--upgrade", pkg]
+    if use_tsinghua:
+        base += ["-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
+    if _run(base):
+        return True
+
+    # 尝试 ensurepip，再次安装
+    _run(py_cmd + ["-m", "ensurepip", "--upgrade"])
+    return _run(base)
+
+
+def install_pyinstaller_waiting(root, lang_code, _, py_cmd_external: list | None = None):
+    """
+    显示不可关闭的等待窗口，安装 PyInstaller。
+    - 非 frozen：默认用当前解释器 pip 安装（与旧逻辑一致）
+    - frozen：必须传入 py_cmd_external（例如 ['py','-3'] 或 ['python']），用其 pip 安装
+    成功 True / 失败 False
+    """
     title = _("install_window_title")
     if title == "install_window_title":
         title = "安装 PyInstaller" if lang_code.lower().startswith("zh") else "Installing PyInstaller"
-
     label_text = _("install_progress_label_wait")
     if label_text == "install_progress_label_wait":
         label_text = ("正在安装 PyInstaller（窗口将自动关闭），安装速度取决于网速，请耐心等待…"
@@ -269,39 +335,38 @@ def install_pyinstaller_waiting(root, lang_code, _):
                       else "Installing PyInstaller (this window will close automatically). Speed depends on your network…")
 
     dlg = InstallWaitingDialog(root, title, label_text)
-    dlg.update()      # 立刻绘制
-    dlg.lift()        # 再次抬到前台
+    dlg.update(); dlg.lift()
 
-    # 选择镜像
-    use_tsinghua = (lang_code.lower().startswith("zh_cn"))
-    if use_tsinghua:
-        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller",
-                   "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
-    else:
-        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller"]
-
-    result = {"code": -1}
+    result = {"ok": False}
 
     def worker():
         try:
-            creationflags = 0
-            if sys.platform.startswith('win') and hasattr(subprocess, "CREATE_NO_WINDOW"):
-                creationflags = subprocess.CREATE_NO_WINDOW
-            proc = subprocess.Popen(
-                pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, creationflags=creationflags
-            )
-            # 实际上我们不解析输出，只等待完成
-            for _ in iter(proc.stdout.readline, ''):
-                pass
-            result["code"] = proc.wait()
+            use_tsinghua = (lang_code.lower().startswith("zh_cn"))
+            if is_frozen_app():
+                if not py_cmd_external:
+                    result["ok"] = False
+                else:
+                    result["ok"] = ensure_pip_then_install(py_cmd_external, "pyinstaller", use_tsinghua)
+            else:
+                pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller"]
+                if use_tsinghua:
+                    pip_cmd += ["-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
+                creationflags = 0
+                if sys.platform.startswith('win') and hasattr(subprocess, "CREATE_NO_WINDOW"):
+                    creationflags = subprocess.CREATE_NO_WINDOW
+                try:
+                    p = subprocess.Popen(pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         text=True, creationflags=creationflags)
+                    for _ in iter(p.stdout.readline, ''):
+                        pass
+                    result["ok"] = (p.wait() == 0)
+                except Exception:
+                    result["ok"] = False
         except Exception:
-            result["code"] = -1
+            result["ok"] = False
 
     th = threading.Thread(target=worker, daemon=True)
     th.start()
-
-    # 主循环等待线程完成
     while th.is_alive():
         try:
             root.update()
@@ -309,7 +374,6 @@ def install_pyinstaller_waiting(root, lang_code, _):
             pass
         time.sleep(0.02)
 
-    # 结束并关闭等待窗
     try:
         dlg.bar.stop()
     except Exception:
@@ -323,7 +387,7 @@ def install_pyinstaller_waiting(root, lang_code, _):
     except Exception:
         pass
 
-    return result["code"] == 0
+    return bool(result["ok"])
 
 
 class PyInstallerGUI:
@@ -607,8 +671,9 @@ class PyInstallerGUI:
         btn.grid(row=0, column=4)
         self.add_tip(btn, "tip_clear_res")
 
-        hint_text = self._("hint_resources_input")
-        ttk.Label(lf_res, text=hint_text, foreground="#666").grid(row=1, column=0, sticky="w", padx=0, pady=(0, 6))
+        hint_text = self._("hint_resources_input") if self._("hint_resources_input") != "hint_resources_input" else ""
+        if hint_text:
+            ttk.Label(lf_res, text=hint_text, foreground="#666").grid(row=1, column=0, sticky="w", padx=0, pady=(0, 6))
 
         self.resource_listbox = tk.Listbox(lf_res, height=7, bg='white')
         self.resource_listbox.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
@@ -1163,14 +1228,25 @@ class PyInstallerGUI:
         self.upx_available = False
         return False
 
-    # --------------------- PyInstaller 可用性（构建阶段兜底） ---------------------
+    # --------------------- PyInstaller 可用性（冻结/源码两态） ---------------------
     def ensure_pyinstaller_available(self):
-        try:
-            import PyInstaller  # noqa
-            return True
-        except Exception:
+        """
+        冻结（exe）下：探测外部 PyInstaller；无则报错。
+        源码运行下：尝试 import PyInstaller；失败报错。
+        """
+        if is_frozen_app():
+            mode, value = external_pyinstaller_probe()
+            if mode is not None:
+                return True
             messagebox.showerror(self._("ask_install_pyinstaller_title"), self._("msg_dependency_required"), parent=self.root)
             return False
+        else:
+            try:
+                import PyInstaller  # noqa
+                return True
+            except Exception:
+                messagebox.showerror(self._("ask_install_pyinstaller_title"), self._("msg_dependency_required"), parent=self.root)
+                return False
 
     # --------------------- 命令构建与执行 ---------------------
     def build_command_list(self):
@@ -1267,13 +1343,34 @@ class PyInstallerGUI:
         return command
 
     def _resolve_pyinstaller_invocation(self, command_list):
-        try:
-            exe = command_list[0]
-            if shutil.which(exe):
-                return command_list
-        except Exception:
-            pass
-        return [sys.executable, "-m", "PyInstaller"] + command_list[1:]
+        """
+        返回可执行的命令行（含解释器/可执行）：
+        - frozen：优先 PATH 上的 pyinstaller；否则挑选外部 Python 执行 -m PyInstaller
+        - 非 frozen：沿用原有逻辑，若找不到则回退到当前解释器 -m PyInstaller
+        """
+        if is_frozen_app():
+            exe = shutil.which("pyinstaller")
+            if exe:
+                return [exe] + command_list[1:]
+            for py_cmd in get_python_candidates():
+                try:
+                    res = subprocess.run(py_cmd + ["-m", "PyInstaller", "--version"],
+                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         text=True, timeout=6)
+                    if res.returncode == 0:
+                        return py_cmd + ["-m", "PyInstaller"] + command_list[1:]
+                except Exception:
+                    pass
+            # 找不到就按原样返回（后续执行会失败，日志会提示）
+            return command_list
+        else:
+            try:
+                exe = command_list[0]
+                if shutil.which(exe):
+                    return command_list
+            except Exception:
+                pass
+            return [sys.executable, "-m", "PyInstaller"] + command_list[1:]
 
     def execute_command(self, command_list):
         if self.mode_var.get() == "-F" and self.upx_external_dlls_only_var.get():
@@ -1424,21 +1521,68 @@ class PyInstallerGUI:
             pass
 
 
-# --------------------- 启动阶段：预检查 PyInstaller ---------------------
+# --------------------- 启动阶段：预检查 PyInstaller（兼容 exe/源码） ---------------------
 def startup_check_pyinstaller(root, lang_code):
     _ = get_translator(lang_code)
-    try:
-        import PyInstaller  # noqa
-        return True
-    except Exception:
-        pass
 
-    title = _("ask_install_pyinstaller_title")
-    msg = _("ask_install_pyinstaller")  # 明确告知依赖，不安装无法使用
-    if not messagebox.askyesno(title, msg, parent=root):
-        # 拒绝安装：提示并退出
+    if is_frozen_app():
+        # 仅检查“外部” PyInstaller
+        mode, value = external_pyinstaller_probe()
+        if mode is not None:
+            return True
+
+        # 未找到：询问是否安装（需要可用的外部 Python）
+        title = _("ask_install_pyinstaller_title")
+        msg = _("ask_install_pyinstaller")
+        if not messagebox.askyesno(title, msg, parent=root):
+            # 拒绝安装：提示并退出
+            try:
+                messagebox.showerror(title, _("msg_dependency_required"), parent=root)
+            except Exception:
+                pass
+            try:
+                root.destroy()
+            except Exception:
+                pass
+            sys.exit(0)
+
+        # 选择外部 Python
+        py_cmd = None
+        for cand in get_python_candidates():
+            try:
+                res = subprocess.run(cand + ["-V"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     text=True, timeout=5)
+                if res.returncode == 0:
+                    py_cmd = cand
+                    break
+            except Exception:
+                pass
+
+        if not py_cmd:
+            # 没有可用的外部 Python
+            try:
+                if lang_code.lower().startswith("zh"):
+                    messagebox.showerror(title, "未检测到可用的外部 Python 解释器，请先安装 Python 3.8+。", parent=root)
+                else:
+                    messagebox.showerror(title, "No external Python interpreter found. Please install Python 3.8+.", parent=root)
+            except Exception:
+                pass
+            try:
+                root.destroy()
+            except Exception:
+                pass
+            sys.exit(0)
+
+        ok = install_pyinstaller_waiting(root, lang_code, _, py_cmd_external=py_cmd)
+        if ok:
+            # 再次探测
+            mode2, value2 = external_pyinstaller_probe()
+            if mode2 is not None:
+                return True
+
+        # 安装失败
         try:
-            messagebox.showerror(title, _("msg_dependency_required"), parent=root)
+            messagebox.showerror(title, _("msg_install_failed"), parent=root)
         except Exception:
             pass
         try:
@@ -1447,26 +1591,44 @@ def startup_check_pyinstaller(root, lang_code):
             pass
         sys.exit(0)
 
-    # 用户同意：显示等待窗并安装
-    ok = install_pyinstaller_waiting(root, lang_code, _)
-    if ok:
-        # 二次校验
+    else:
+        # 非 frozen：维持旧逻辑（当前解释器内检测/安装）
         try:
             import PyInstaller  # noqa
             return True
         except Exception:
             pass
 
-    # 安装失败或无法导入：提示并退出
-    try:
-        messagebox.showerror(title, _("msg_install_failed"), parent=root)
-    except Exception:
-        pass
-    try:
-        root.destroy()
-    except Exception:
-        pass
-    sys.exit(0)
+        title = _("ask_install_pyinstaller_title")
+        msg = _("ask_install_pyinstaller")
+        if not messagebox.askyesno(title, msg, parent=root):
+            try:
+                messagebox.showerror(title, _("msg_dependency_required"), parent=root)
+            except Exception:
+                pass
+            try:
+                root.destroy()
+            except Exception:
+                pass
+            sys.exit(0)
+
+        ok = install_pyinstaller_waiting(root, lang_code, _)
+        if ok:
+            try:
+                import PyInstaller  # noqa
+                return True
+            except Exception:
+                pass
+
+        try:
+            messagebox.showerror(title, _("msg_install_failed"), parent=root)
+        except Exception:
+            pass
+        try:
+            root.destroy()
+        except Exception:
+            pass
+        sys.exit(0)
 
 
 if __name__ == "__main__":
