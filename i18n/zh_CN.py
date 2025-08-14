@@ -1,3 +1,4 @@
+# i18n/zh_CN.py
 # -*- coding: utf-8 -*-
 STRINGS = {
     "app_title": "PyInstaller 快速打包工具",
@@ -35,6 +36,8 @@ STRINGS = {
     "radio_windowed": "无控制台 (-w)",
 
     "check_use_upx": "使用 UPX 压缩（推荐）",
+    "check_upx_force": "使用 --force（可能导致程序无法运行）",
+    "check_upx_internal": "使用 PyInstaller 内置 UPX",
     "check_noarchive": "禁用归档 (--noarchive)",
     "check_disable_windowed_tb": "禁用 Windowed 回溯弹窗 (--disable-windowed-traceback)",
     "check_win_no_prefer_redirects": "win-no-prefer-redirects",
@@ -92,13 +95,11 @@ STRINGS = {
     "log_clean_error": "清理时出错: {err}",
 
     "upx_not_found_try_install": "未检测到 UPX，尝试自动安装：pip install upx",
-    "upx_install_default_failed": "通过默认源安装 UPX 失败：{err}\n尝试使用清华镜像...",
-    "upx_install_ts_fail": "通过清华镜像安装 UPX 失败：{err}",
     "upx_installed_ok": "UPX 安装成功，已可用。",
     "upx_added_to_path": "已定位并添加 UPX 到 PATH: {path}",
     "upx_unavailable_disable": "未能自动配置 UPX，将禁用 UPX 压缩（等价 --noupx）。",
 
-    # ---------- 悬停提示（精简说明 + 小范例） ----------
+    # 悬停提示（精简说明 + 小范例）
     "tip_main_script": "选择入口 .py 脚本。示例：main.py。更换后会自动以文件名作为默认输出名。",
     "tip_browse_script": "浏览并选择入口脚本（如 src/app.py）。",
     "tip_output_name": "可留空自动使用脚本文件名。示例：MyApp、工具箱。",
@@ -114,7 +115,9 @@ STRINGS = {
     "tip_console": "显示控制台窗口，适合 CLI 或需要查看 print/log 的程序。",
     "tip_windowed": "隐藏控制台，适合 GUI 程序。异常回溯将以弹窗显示。",
 
-    "tip_use_upx": "构建成功后对 .exe/.dll/.pyd 执行 UPX 压缩以减小体积。",
+    "tip_use_upx": "构建成功后使用 UPX 压缩输出文件以减小体积（外压）。",
+    "tip_upx_force": "仅用于外压：对不受支持的 PE（如启用 CFG）强行压缩。高风险，可能导致程序无法运行。",
+    "tip_upx_internal": "由 PyInstaller 内置流程调用 UPX（更保守，可能跳过主 EXE，尤其启用 CFG 时）。选择后将禁用级别滑块与 --force。",
     "tip_upx_level": "UPX 级别 1–9：1=最快/压缩弱；9=最小/最慢。示例：推荐 5~7。",
     "tip_debug": "PyInstaller 调试：imports=打印导入；noarchive=不打包归档；all=更详细。",
 
@@ -153,8 +156,6 @@ STRINGS = {
     "tip_upx_excl_list": "UPX 将跳过这些匹配的文件。",
 
     "tip_disable_windowed_tb": "Windowed 下禁用回溯弹窗（异常将不再以弹窗显示）。",
-
-    # —— 新增：你提到的两处缺失（更有用的小范例） ——
     "tip_runtime_tmpdir": "one-file 模式解压与运行的临时目录。可自定义到可写路径。\n示例：%TEMP%\\myapp 或 D:\\tmp\\myapp。",
     "tip_extra_args": "直接透传给 PyInstaller 的原始参数。\n示例：--collect-all pkg --paths C:\\py\\libs。\n注意：--add-data 在 Windows 用“源;目标”，在 Linux/macOS 用“源:目标”。",
 
@@ -163,4 +164,9 @@ STRINGS = {
     "tip_btn_exit": "退出程序。",
 
     "note_winsxs_removed": "提示：PyInstaller 6 起已移除 WinSxS 相关参数。",
+
+    # 外压时遇到 CFG 跳过的提示
+    "upx_cfg_unsupported_skip": "[UPX] 跳过（CFG/GuardCF）：{name}（启用 GUARD_CF 的 PE 当前不受支持）",
+    "upx_cfg_hint_exclude": "提示：将该文件名或匹配模式加入“UPX 排除（模式）”，以后不再尝试压缩；如必须压缩，可手动使用 --force（存在风险，可能导致程序无法运行）。",
+    "upx_cfg_hint_enable_force": "提示：若确认需要强行压缩，可在“基本设置”勾选“使用 --force（可能导致程序无法运行）”，然后重新构建。",
 }

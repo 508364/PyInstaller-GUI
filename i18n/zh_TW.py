@@ -1,3 +1,4 @@
+# i18n/zh_TW.py
 # -*- coding: utf-8 -*-
 STRINGS = {
     "app_title": "PyInstaller 快速打包工具",
@@ -35,6 +36,8 @@ STRINGS = {
     "radio_windowed": "無主控台 (-w)",
 
     "check_use_upx": "使用 UPX 壓縮（建議）",
+    "check_upx_force": "使用 --force（可能導致無法執行）",
+    "check_upx_internal": "使用 PyInstaller 內建 UPX",
     "check_noarchive": "停用封存 (--noarchive)",
     "check_disable_windowed_tb": "停用視窗化回溯視窗 (--disable-windowed-traceback)",
     "check_win_no_prefer_redirects": "win-no-prefer-redirects",
@@ -92,13 +95,11 @@ STRINGS = {
     "log_clean_error": "清理時發生錯誤: {err}",
 
     "upx_not_found_try_install": "未偵測到 UPX，嘗試自動安裝：pip install upx",
-    "upx_install_default_failed": "使用預設來源安裝 UPX 失敗：{err}\n嘗試使用清華鏡像...",
-    "upx_install_ts_fail": "透過清華鏡像安裝 UPX 失敗：{err}",
     "upx_installed_ok": "UPX 安裝成功，已可用。",
     "upx_added_to_path": "已定位並加入 UPX 至 PATH: {path}",
     "upx_unavailable_disable": "無法自動配置 UPX，將停用 UPX 壓縮（等同 --noupx）。",
 
-    # ---------- 懸停提示（精簡說明 + 小範例） ----------
+    # 懸停提示（精簡說明 + 小範例）
     "tip_main_script": "選擇入口 .py 腳本。例：main.py。更換後將自動以檔名作為輸出名預設值。",
     "tip_browse_script": "瀏覽並選擇入口腳本（如 src/app.py）。",
     "tip_output_name": "可留白以使用腳本檔名。例：MyApp、工具箱。",
@@ -114,7 +115,9 @@ STRINGS = {
     "tip_console": "顯示主控台視窗，適合 CLI 或需查看 print/log 的程式。",
     "tip_windowed": "隱藏主控台，適合 GUI 程式。例外回溯將以視窗顯示。",
 
-    "tip_use_upx": "建置成功後對 .exe/.dll/.pyd 執行 UPX 壓縮以縮小體積。",
+    "tip_use_upx": "建置成功後使用 UPX 壓縮輸出檔（外壓）。",
+    "tip_upx_force": "僅用於外壓：對不受支援的 PE（如啟用 CFG）強行壓縮。高風險，可能導致無法執行。",
+    "tip_upx_internal": "由 PyInstaller 內建流程呼叫 UPX（較保守，可能跳過主 EXE，特別是啟用 CFG 時）。選擇後將停用等級滑桿與 --force。",
     "tip_upx_level": "UPX 等級 1–9：1=最快/壓縮弱；9=最小/最慢。建議 5~7。",
     "tip_debug": "PyInstaller 偵錯：imports=列印匯入；noarchive=不打包封存；all=更詳細。",
 
@@ -130,7 +133,7 @@ STRINGS = {
     "tip_hidden_imports": "顯式宣告匯入不到的模組。例：pkg.submod。",
     "tip_add_hidden": "新增一個隱藏匯入（Enter 後可繼續新增）。",
     "tip_clear_hidden": "清空隱藏匯入清單。",
-    "tip_hidden_list": "將以 --hidden-import 方式傳給 PyInstaller 的模組。",
+    "tip_hidden_list": "將以 --hidden-import 傳給 PyInstaller 的模組。",
 
     "tip_excludes": "打包時要排除的模組。例：tkinter、torch.tests。",
     "tip_add_exclude": "新增一個排除模組（支援套件或子模組）。",
@@ -153,7 +156,6 @@ STRINGS = {
     "tip_upx_excl_list": "UPX 將跳過這些匹配的檔案。",
 
     "tip_disable_windowed_tb": "Windowed 下停用回溯視窗（例外將不再以視窗顯示）。",
-
     "tip_runtime_tmpdir": "one-file 模式解壓與執行用的暫存目錄。可自訂到可寫位置。\n例：%TEMP%\\myapp 或 D:\\tmp\\myapp。",
     "tip_extra_args": "直接傳給 PyInstaller 的原始參數。\n例：--collect-all pkg --paths C:\\py\\libs。\n注意：--add-data 在 Windows 用「來源;目標」，Linux/macOS 用「來源:目標」。",
 
@@ -162,4 +164,8 @@ STRINGS = {
     "tip_btn_exit": "離開程式。",
 
     "note_winsxs_removed": "提示：PyInstaller 6 起已移除 WinSxS 相關參數。",
+
+    "upx_cfg_unsupported_skip": "[UPX] 跳過（CFG/GuardCF）：{name}（啟用 GUARD_CF 的 PE 目前不受支援）",
+    "upx_cfg_hint_exclude": "提示：將該檔名或匹配模式加入「UPX 排除（模式）」，之後不再嘗試壓縮；若必須壓縮，可手動使用 --force（有風險，可能導致無法執行）。",
+    "upx_cfg_hint_enable_force": "提示：若確認需要強行壓縮，可在「基本設定」勾選「使用 --force（可能導致無法執行）」後重新建置。",
 }

@@ -1,3 +1,4 @@
+# i18n/en_US.py
 # -*- coding: utf-8 -*-
 STRINGS = {
     "app_title": "PyInstaller Quick Pack Tool",
@@ -35,6 +36,8 @@ STRINGS = {
     "radio_windowed": "Windowed (-w)",
 
     "check_use_upx": "Use UPX compression (recommended)",
+    "check_upx_force": "Use --force (may break the binary)",
+    "check_upx_internal": "Use PyInstaller internal UPX",
     "check_noarchive": "Disable archive (--noarchive)",
     "check_disable_windowed_tb": "Disable windowed traceback (--disable-windowed-traceback)",
     "check_win_no_prefer_redirects": "win-no-prefer-redirects",
@@ -92,29 +95,28 @@ STRINGS = {
     "log_clean_error": "Error during clean: {err}",
 
     "upx_not_found_try_install": "UPX not found, trying to install automatically: pip install upx",
-    "upx_install_default_failed": "Installing UPX from default index failed: {err}\nTrying Tsinghua mirror...",
-    "upx_install_ts_fail": "Installing UPX from Tsinghua mirror failed: {err}",
     "upx_installed_ok": "UPX installed and available.",
     "upx_added_to_path": "Found UPX and added to PATH: {path}",
     "upx_unavailable_disable": "Could not configure UPX; UPX compression will be disabled (--noupx).",
 
-    # ---------- Tooltips (concise + tiny examples) ----------
+    # Tooltips (concise + tiny examples)
     "tip_main_script": "Pick the entry .py script. e.g. main.py. Output name defaults to the script name.",
     "tip_browse_script": "Browse and choose the entry script (e.g. src/app.py).",
     "tip_output_name": "Leave empty to use script name. Examples: MyApp, Toolbox.",
     "tip_distpath": "Directory for build outputs (default: dist). Example: D:\\builds\\MyApp.",
     "tip_browse_dist": "Browse and choose the output directory (created if missing).",
     "tip_icon": "Optional .ico for Windows EXE icon. Example: assets\\app.ico.",
-    "tip_browse_icon": "Pick an .ico file; you can convert from PNG online.",
-    "tip_version_file": "File for --version-file; may include company/name/version metadata.",
     "tip_browse_version": "Choose a version file (e.g. version.txt / version.ini).",
+    "tip_version_file": "File for --version-file; may include company/name/version metadata.",
 
     "tip_onefile": "Single executable; extracts to a temp dir at runtime. Larger/slower to start.",
     "tip_onedir": "Folder output; faster start and easier to debug. Ship the whole folder.",
     "tip_console": "Show console window (good for CLI or debugging prints/logs).",
     "tip_windowed": "No console (good for GUI). Exceptions show in a message box.",
 
-    "tip_use_upx": "After a successful build, run UPX on .exe/.dll/.pyd to reduce size.",
+    "tip_use_upx": "Run UPX on outputs after a successful build (external pass).",
+    "tip_upx_force": "External UPX only: force-compress unsupported PE (e.g., with CFG). Risky; may break the binary.",
+    "tip_upx_internal": "Let PyInstaller invoke UPX (more conservative; may skip main EXE, esp. with CFG). Disables level slider and --force.",
     "tip_upx_level": "UPX level 1–9: 1=fastest/least compression; 9=smallest/slowest. Suggest 5–7.",
     "tip_debug": "PyInstaller debug: imports=log imports; noarchive=unpack archive; all=more verbose.",
 
@@ -128,7 +130,7 @@ STRINGS = {
     "tip_data_list": "Added resource mappings (src → dest).",
 
     "tip_hidden_imports": "Explicit modules PyInstaller can’t discover. Example: pkg.submod.",
-    "tip_add_hidden": "Add one hidden import (press Enter to continue adding).",
+    "tip_add_hidden": "Add a hidden import (press Enter to continue adding).",
     "tip_clear_hidden": "Clear the hidden-import list.",
     "tip_hidden_list": "Modules passed via --hidden-import.",
 
@@ -153,8 +155,6 @@ STRINGS = {
     "tip_upx_excl_list": "Files matched here will be skipped by UPX.",
 
     "tip_disable_windowed_tb": "In windowed mode, disable the traceback message box.",
-
-    # —— Newly emphasized tooltips you requested ——
     "tip_runtime_tmpdir": "Temp dir used by one-file at runtime. Must be writable.\nExamples: %TEMP%\\myapp or D:\\tmp\\myapp.",
     "tip_extra_args": "Raw args passed directly to PyInstaller.\nExamples: --collect-all pkg --paths C:\\py\\libs.\nNote: --add-data uses 'src;dest' on Windows, 'src:dest' on Linux/macOS.",
 
@@ -163,4 +163,8 @@ STRINGS = {
     "tip_btn_exit": "Quit the app.",
 
     "note_winsxs_removed": "Note: WinSxS-related flags were removed since PyInstaller 6.",
+
+    "upx_cfg_unsupported_skip": "[UPX] Skipped (CFG/GuardCF): {name} (PE with GUARD_CF is not supported)",
+    "upx_cfg_hint_exclude": "Hint: add this filename or a pattern to 'UPX Exclude (pattern)' to avoid future attempts; if you must compress, you can try --force at your own risk (may break the binary).",
+    "upx_cfg_hint_enable_force": "Hint: if you really need to compress it, tick 'Use --force (may break the binary)' in Basic settings and rebuild.",
 }
