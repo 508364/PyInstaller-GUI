@@ -1,117 +1,109 @@
-# PyInstaller GUI Packaging Tool
+# PyInstaller GUI Pack Tool
 
-A Python-based graphical user interface for quickly packaging Python scripts with PyInstaller. Configure common options through an intuitive UI without memorizing complex CLI arguments.
+A Python GUI to build executables with PyInstaller quickly.Configure common options via an intuitive interface-no need to memorize CLI flags.Ships with localized tooltips(i18n,auto-detected,single-language display)and High-DPI awareness.
+
+---
 
 ## Features
 
-- Easy to use： No command-line knowledge required.
-- Common options：
-  - One-file (-F) and one-folder (-D) packaging.
-  - Console mode： show console or windowed (no console).
-  - Set executable icon (-i).
-  - Custom output directory (--distpath).
-  - Custom output name (-n). When you select the main script， the name auto-fills to the script filename.
-- Unified Additional Resources：
-  - Add files or directories in one place.
-  - Default placement：
-    - Directories are placed as a same-named folder in the runtime temp root.
-    - Files are placed directly in the runtime temp root (keeping original filename).
-  - Custom destination mapping：
-    - Use “source|dest” or “source＝>dest” (e.g.， C：\\data\\assets|res or images\\logo.png|res\\img).
-- Real-time logging：
-  - Live output during build.
-  - Automatically switches to the Logs tab after starting the build.
-  - Opens the output directory on success.
-- Cleanup：
-  - One-click removal of build artifacts (build folder， spec file， _ _pycache_ _， etc.).
-- UPX support with adjustable level：
-  - Slider from 1–10 (10 is treated as 9).
-  - Performed as a post-build step to avoid conflicts with PyInstaller’s built-in UPX (we force --noupx in the build command).
-  - Auto-detects／installs UPX when possible； gracefully skips with a log note if unavailable.
-  - Supports an exclude list (filenames or patterns) to skip specific binaries.
-- Compatibility adjustments：
-  - Automatically detects the local PyInstaller version.
-  - Windows WinSxS options are only shown when PyInstaller ＜ 6.0 (these options were removed in v6+).
-  - Removed the standalone --noarchive switch； the Debug level still supports “noarchive” via -d noarchive.
+- Easy to use:no CLI knowledge required.  
+- Common build options:  
+ - One-file(-F)/ One-dir(-D)  
+ - Console:Console/Windowed(-w)  
+ - Icon(-i),Output dir(--distpath),Output name(-n,auto-filled from main script)  
+- Unified additional data input:  
+ - Add files or folders in one place;default rule:folder → copied under the same folder name;file → copied to temp root(keep filename)  
+ - Custom mapping:`src|dest` or `src=>dest`(e.g. `C:\data\assets|res`,`images\logo.png|res\img`)  
+- UPX compression(post-processing):  
+ - Level 1-10(10 treated as 9),run after build(build command always uses `--noupx` to avoid conflicts)  
+ - Auto detect/install UPX;if unavailable,log and skip  
+ - Support exclude list(file names or globs,e.g. `*.dll`,`*_debug.pyd`)  
+- Localization(i18n)& tooltips:  
+ - Auto detect system language;show a single language(currently `zh_CN/zh_TW/en_US`,extensible)  
+ - Concise explanations+tiny examples for major controls:  
+  - Runtime temp dir:one-file extraction/run dir(e.g. `%TEMP%\myapp`,`D:\tmp\myapp`)  
+  - Extra CLI args:passed through to PyInstaller(e.g. `--collect-all pkg --paths C:\py\libs`;note `--add-data` uses `src;dest` on Windows and `src:dest` on Linux/macOS)  
+- Compatibility&conditional UI:  
+ - Detect local PyInstaller;only show WinSxS options when PyInstaller < 6.0(removed since v6)  
+- High-DPI(Windows):  
+ - Enable Per-Monitor V2 before Tk;sync `tk scaling` after creating Tk  
+- Live logs:  
+ - Realtime output;auto-switch to “Logs” tab;open output directory on success  
+ - Dark background log view  
+- Clean temp files:  
+ - One click to remove `build/`,same-name `.spec`,and `__pycache__/`
 
-## Installation
+---
 
-1. Ensure Python is installed (recommended Python 3.8+).
-2. Install PyInstaller：
-  ```bash
-  pip install pyinstaller
-  ```
-3. Download and run the GUI tool from this repository， or use the precompiled version (Windows).
+## Install
 
-Using the precompiled version (Windows)：
-- Download the .exe from the Releases page.
-- Double-click to run (no Python environment required).
+1. Install Python(3.8+ recommended)  
+2. Install PyInstaller:  
+ `pip install pyinstaller`  
+3. Run the GUI script from repo;or use the prebuilt exe(Windows)
+
+---
 
 ## Usage
 
-Run the program
-- Python script：
-  ```bash
-  python ＜your_gui_script>.py
-  ```
-- Precompiled version： double-click the .exe.
+1. Run  
+ `python PyInstaller打包工具.py`  
+ or double-click the prebuilt .exe
 
-Configure build options
-- Click “Browse” to choose the Python script (.py). Output name auto-fills with the script filename (you can edit it).
-- Set output directory (optional)， default is dist in the current directory.
-- Select packaging mode：
-  - One-file： produces a single executable (.exe).
-  - One-folder： produces a folder with the executable and dependencies.
-- Console options：
-  - Show console： for CLI apps.
-  - No console： for GUI apps (e.g.， pygame， PyQt).
-- Icon： click “Browse” next to Icon to select a .ico file (optional).
+2. Basics  
+ - Choose main script(output name auto-filled;editable)  
+ - Output dir(default `dist`)  
+ - Packaging mode:one-file(extracts at runtime;bigger/slower start)/one-dir(faster start)  
+ - Console options:Console/Windowed(exceptions shown in a message box)
 
-Additional resources
-- Enter a source path (file or directory) and click “Add”：
-  - Directories become same-named folders at runtime temp root.
-  - Files go directly under the runtime temp root (keep filename).
-- Custom destination examples：
-  - C：\\data\\assets|res
-  - images\\logo.png|res\\img
-  - Also supports “＝>”： src＝>dest
-- You can still add any extra PyInstaller arguments in “Extra arguments” (e.g.， more --add-data).
+3. Additional data  
+ - Enter source path(file/folder),click Add  
+ - Custom mapping:`src|dest` or `src=>dest`  
+  Examples:  
+  - `assets|assets`  
+  - `C:\img\logo.png|images\logo.png`
 
-UPX compression
-- Choose a level 1–10 (default 5； 10 acts as 9).
-- After a successful build， the tool runs UPX compression； if UPX is not found， it attempts installation or logs a skip.
-- Add patterns to the “UPX exclude” list to skip specific files (e.g.， *.dll).
+4. UPX  
+ - Tick “Use UPX compression(recommended)”  
+ - Choose level via slider(1=fastest/least compression;9=smallest/slowest;10 treated as 9)  
+ - Add patterns to “UPX exclude(pattern)” if needed(e.g. `*.dll`,`*_debug.pyd`)
 
-Start build
-- Click “Start Build”； the UI switches to the Logs tab to show real-time output.
-- On success， the output directory is opened.
+5. Advanced(optional)  
+ - Hidden imports(--hidden-import),excludes(--exclude-module)  
+ - Extra hooks dirs,runtime hooks  
+ - Runtime temp dir(--runtime-tmpdir):e.g. `%TEMP%\myapp`,`D:\tmp\myapp`  
+ - Extra CLI args:passed to PyInstaller(e.g. `--collect-all pkg --paths C:\py\libs`)  
+  > Note:`--add-data` uses `src;dest` on Windows,and `src:dest` on Linux/macOS
 
-Clean project
-- Click “Clean Project” to remove build， spec， and _ _pycache_ _.
+6. Build/Clean temp/Exit  
+ - “Build”:auto switches to Logs;opens output dir on success  
+ - “Clean temp files”:remove `build/`,same-name `.spec`,and `__pycache__/`  
+	- “Exit”:quit app
 
-## Notes
+---
 
-- Build time depends on project size and dependencies. One-file mode has longer startup due to extraction to a temp directory.
-- Ensure paths for any additional files are correct.
-- WinSxS-related options on Windows appear only when PyInstaller ＜ 6.0 (removed in v6+).
+## i18n extension
 
-## FAQ
+- Provided `zh_CN.py`,`zh_TW.py`,`en_US.py`.  
+- To add a new locale:copy `en_US.py` to a new file(e.g. `ja_JP.py`)and translate keys;no app changes needed.  
+- Tooltip keys start with `tip_*`(e.g. `tip_runtime_tmpdir`,`tip_extra_args`).
 
-Why is the packaged program large？
-- PyInstaller bundles the Python interpreter and all dependencies. To reduce size：
-  - Use UPX compression (enabled here with adjustable level).
-  - Trim unnecessary dependencies.
-  - Build in a virtual environment to avoid bundling unrelated packages.
+---
 
-Why doesn’t the packaged program run on another computer？
-- The target machine may lack required runtimes (e.g.， VC++). Try：
-  - Installing Microsoft Visual C++ Redistributable.
-  - Adding missing files via --add-data.
+## Notes on compatibility
 
-Why is the program flagged by antivirus？
-- Packaged executables can be false-flagged. Consider：
-  - Submitting a false-positive report.
-  - Code-signing the executable (requires a certificate).
+- PyInstaller 6+:WinSxS flags removed;UI shows them only when version < 6.0.  
+- UPX:the app will try to install/configure;if it fails,it will log and skip.  
+- High-DPI:enable Per-Monitor V2 on Windows and call `tk scaling` after Tk init.
 
-Supported operating systems？
-- Primarily developed and tested on Windows； core features should work cross-platform (macOS／Linux). Feedback is welcome.
+---
+
+## Changes since previous version
+
+- Added:full set of localized tooltips(single language,with tiny examples)  
+- Added:two previously missing tooltips-runtime temp dir,extra CLI args  
+- Added:High-DPI awareness and `tk scaling` sync  
+- Improved:UPX as post-processing(build always uses `--noupx`)  
+- Kept:original UI layout/control positions;UPX slider remains un-tickmarked `ttk.Scale` with a numeric label on the right  
+- Rename:“Clean” → “Clean temp files”  
+- Conditional:WinSxS options shown only when PyInstaller < 6

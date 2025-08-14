@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-# 语言支持（外置）
+# ---------------- i18n 导入（沿用你的机制） ----------------
 try:
     from i18n import get_translator, detect_language_code
 except Exception:
@@ -41,7 +41,7 @@ def apply_high_dpi_awareness():
 
 
 class Tooltip:
-    """简易气泡提示：鼠标悬停显示文本"""
+    """简易气泡提示：鼠标悬停显示文本（文本由 i18n 提供，仅一种语言）"""
     def __init__(self, widget, text, delay=600, wraplength=380):
         self.widget = widget
         self.text = text
@@ -181,7 +181,6 @@ def detect_pyinstaller_version():
                 out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=8)
                 text = (out.stdout or "").strip()
                 if text:
-                    # 取第一行中的版本样式
                     first = text.splitlines()[0].strip()
                     vstr = first
                     break
@@ -192,7 +191,7 @@ def detect_pyinstaller_version():
 
 class PyInstallerGUI:
     def __init__(self, root):
-        # 翻译器
+        # 翻译器（只显示一种语言）
         lang_code = detect_language_code()
         self._ = get_translator(lang_code)
         self.lang_code = lang_code
@@ -202,7 +201,6 @@ class PyInstallerGUI:
         self.has_winsxs_opts = bool(
             sys.platform.startswith('win') and self.pyi_version_tuple and self.pyi_version_tuple < (6, 0)
         )
-        # 未检测到版本时，为安全起见不展示 WinSxS 选项
         if self.pyi_version_tuple is None:
             self.has_winsxs_opts = False
 
@@ -217,7 +215,7 @@ class PyInstallerGUI:
         self.root.minsize(720, 560)
         self.root.resizable(True, True)
 
-        # 主框架与选项卡
+        # 主框架与选项卡（保持原布局）
         self.main_frame = ttk.Frame(root, padding="8")
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         self.main_frame.rowconfigure(0, weight=1)
@@ -246,36 +244,30 @@ class PyInstallerGUI:
         self.page_logs.rowconfigure(0, weight=1)
         self.page_logs.columnconfigure(0, weight=1)
 
-        # 存储用户数据
+        # 数据区
         self.script_path = ""
         self.icon_path = ""
         self.version_file_path = ""
-
-        # 统一的资源清单（目录/文件）：[(abs_source, dest_rel)]
         self.resources_list = []
-
         self.hidden_imports_list = []
         self.exclude_modules_list = []
         self.hooks_dir_list = []
         self.runtime_hooks_list = []
         self.upx_exclude_list = []
         self.upx_available = None  # None/True/False
-
-        # Windows 专属选项变量（即使不显示，也创建变量以避免引用报错）
         self.win_no_prefer_redirects = tk.BooleanVar(value=False)
         self.win_private_assemblies = tk.BooleanVar(value=False)
 
-        # 构建各页面 UI
+        # 构建各页面 UI 与操作按钮
         self.build_page_basic()
         self.build_page_assets()
         self.build_page_advanced()
         self.build_page_logs()
         self.create_action_buttons()
 
-        # 构建完成后刷新滚动容器
+        # 刷新滚动容器
         self.page_assets_scroll.refresh()
         self.page_adv_scroll.refresh()
-        # 切换分页时自动刷新
         self.notebook.bind("<<NotebookTabChanged>>", lambda e: self._refresh_scrollables())
 
     def _refresh_scrollables(self):
@@ -284,10 +276,14 @@ class PyInstallerGUI:
         if hasattr(self, "page_adv_scroll"):
             self.page_adv_scroll.refresh()
 
-    # 小工具：若翻译缺失，则使用默认文本
-    def tr(self, key, default_text):
-        v = self._(key)
-        return v if v != key else default_text
+    # 统一加提示（文本由 i18n 提供）
+    def add_tip(self, widget, key):
+        try:
+            text = self._(key)
+            if text and text != key:
+                Tooltip(widget, text)
+        except Exception:
+            pass
 
     # --------------------- 页面构建 ---------------------
     def build_page_basic(self):
@@ -299,16 +295,23 @@ class PyInstallerGUI:
         ttk.Label(file_frame, text=self._("label_main_script")).grid(row=0, column=0, sticky="w", padx=5, pady=5)
         self.script_entry = ttk.Entry(file_frame)
         self.script_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        ttk.Button(file_frame, text=self._("btn_browse"), command=self.select_script).grid(row=0, column=2, padx=5, pady=5)
+        self.add_tip(self.script_entry, "tip_main_script")
+        btn = ttk.Button(file_frame, text=self._("btn_browse"), command=self.select_script)
+        btn.grid(row=0, column=2, padx=5, pady=5)
+        self.add_tip(btn, "tip_browse_script")
 
         ttk.Label(file_frame, text=self._("label_output_name")).grid(row=1, column=0, sticky="w", padx=5, pady=5)
         self.name_entry = ttk.Entry(file_frame)
         self.name_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+        self.add_tip(self.name_entry, "tip_output_name")
 
         ttk.Label(file_frame, text=self._("label_output_dir")).grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.distpath_entry = ttk.Entry(file_frame)
         self.distpath_entry.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
-        ttk.Button(file_frame, text=self._("btn_browse"), command=self.select_distpath).grid(row=2, column=2, padx=5, pady=5)
+        self.add_tip(self.distpath_entry, "tip_distpath")
+        btn = ttk.Button(file_frame, text=self._("btn_browse"), command=self.select_distpath)
+        btn.grid(row=2, column=2, padx=5, pady=5)
+        self.add_tip(btn, "tip_browse_dist")
         self.distpath_entry.insert(0, os.path.abspath("dist"))
 
         # 打包选项
@@ -319,43 +322,57 @@ class PyInstallerGUI:
 
         ttk.Label(opt_frame, text=self._("label_pack_mode")).grid(row=0, column=0, sticky="w", padx=5, pady=5)
         self.mode_var = tk.StringVar(value="-F")
-        ttk.Radiobutton(opt_frame, text=self._("radio_onefile"), variable=self.mode_var, value="-F").grid(row=0, column=1, sticky="w", padx=5, pady=5)
-        ttk.Radiobutton(opt_frame, text=self._("radio_onedir"), variable=self.mode_var, value="-D").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        rb = ttk.Radiobutton(opt_frame, text=self._("radio_onefile"), variable=self.mode_var, value="-F")
+        rb.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+        self.add_tip(rb, "tip_onefile")
+        rb = ttk.Radiobutton(opt_frame, text=self._("radio_onedir"), variable=self.mode_var, value="-D")
+        rb.grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        self.add_tip(rb, "tip_onedir")
 
         ttk.Label(opt_frame, text=self._("label_console")).grid(row=1, column=0, sticky="w", padx=5, pady=5)
         self.console_var = tk.StringVar(value="-c")
-        ttk.Radiobutton(opt_frame, text=self._("radio_console"), variable=self.console_var, value="-c").grid(row=1, column=1, sticky="w", padx=5, pady=5)
-        ttk.Radiobutton(opt_frame, text=self._("radio_windowed"), variable=self.console_var, value="-w").grid(row=1, column=2, sticky="w", padx=5, pady=5)
+        rb = ttk.Radiobutton(opt_frame, text=self._("radio_console"), variable=self.console_var, value="-c")
+        rb.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+        self.add_tip(rb, "tip_console")
+        rb = ttk.Radiobutton(opt_frame, text=self._("radio_windowed"), variable=self.console_var, value="-w")
+        rb.grid(row=1, column=2, sticky="w", padx=5, pady=5)
+        self.add_tip(rb, "tip_windowed")
 
         ttk.Label(opt_frame, text=self._("label_app_icon")).grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.icon_entry = ttk.Entry(opt_frame)
         self.icon_entry.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
-        ttk.Button(opt_frame, text=self._("btn_browse"), command=self.select_icon).grid(row=2, column=2, padx=5, pady=5)
+        self.add_tip(self.icon_entry, "tip_icon")
+        btn = ttk.Button(opt_frame, text=self._("btn_browse"), command=self.select_icon)
+        btn.grid(row=2, column=2, padx=5, pady=5)
+        self.add_tip(btn, "tip_browse_icon")
 
         ttk.Label(opt_frame, text=self._("label_version_file")).grid(row=3, column=0, sticky="w", padx=5, pady=5)
         self.version_entry = ttk.Entry(opt_frame)
         self.version_entry.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
-        ttk.Button(opt_frame, text=self._("btn_browse"), command=self.select_version_file).grid(row=3, column=2, padx=5, pady=5)
+        self.add_tip(self.version_entry, "tip_version_file")
+        btn = ttk.Button(opt_frame, text=self._("btn_browse"), command=self.select_version_file)
+        btn.grid(row=3, column=2, padx=5, pady=5)
+        self.add_tip(btn, "tip_browse_version")
 
         self.upx_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(opt_frame, text=self._("check_use_upx"), variable=self.upx_var).grid(row=4, column=1, columnspan=2, sticky="w", padx=5, pady=5)
+        cb = ttk.Checkbutton(opt_frame, text=self._("check_use_upx"), variable=self.upx_var)
+        cb.grid(row=4, column=1, columnspan=2, sticky="w", padx=5, pady=5)
+        self.add_tip(cb, "tip_use_upx")
 
-        # UPX 压缩级别（后处理）
+        # UPX 压缩级别（后处理）—— 保持 ttk.Scale 无刻度 + 右侧数字
         upx_row = ttk.Frame(opt_frame)
         upx_row.grid(row=5, column=0, columnspan=3, sticky="ew", padx=5, pady=(0, 5))
         upx_row.columnconfigure(1, weight=1)
-        ttk.Label(upx_row, text=self.tr("label_upx_level", "UPX 压缩级别")).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        ttk.Label(upx_row, text=self._("label_upx_level")).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.upx_level_var = tk.DoubleVar(value=5)
-        self.upx_level_scale = ttk.Scale(upx_row, from_=1, to=10, orient="horizontal",
-                                         variable=self.upx_level_var, command=lambda v: self._on_upx_level_changed(v))
+        self.upx_level_scale = ttk.Scale(
+            upx_row, from_=1, to=10, orient="horizontal",
+            variable=self.upx_level_var, command=lambda v: self._on_upx_level_changed(v)
+        )
         self.upx_level_scale.grid(row=0, column=1, sticky="ew")
+        self.add_tip(self.upx_level_scale, "tip_upx_level")
         self.upx_level_value = ttk.Label(upx_row, text="5")
         self.upx_level_value.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        Tooltip(self.upx_level_scale, self.tr(
-            "tip_upx_level",
-            "构建完成后对输出文件执行 UPX 压缩：1=最快，9=最小（10按9处理）。\n"
-            "PyInstaller 本身不提供压缩级别参数，已自动禁用其内置 UPX 并改为后处理。"
-        ))
         self.upx_var.trace_add("write", lambda *a: self._update_upx_controls_state())
         self._update_upx_controls_state()
 
@@ -370,6 +387,7 @@ class PyInstallerGUI:
         self.debug_combo = ttk.Combobox(opt_frame, textvariable=self.debug_level, state="readonly",
                                         values=list(self.debug_map.keys()), width=20)
         self.debug_combo.grid(row=6, column=1, sticky="w", padx=5, pady=5)
+        self.add_tip(self.debug_combo, "tip_debug")
 
     def build_page_assets(self):
         frame = self.page_assets
@@ -385,21 +403,26 @@ class PyInstallerGUI:
 
         self.resource_entry = ttk.Entry(self.res_frame)
         self.resource_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ttk.Button(self.res_frame, text=self.tr("btn_browse_file", "选择文件"), width=10, command=self.select_resource_file).grid(row=0, column=1, padx=2)
-        ttk.Button(self.res_frame, text=self.tr("btn_browse_dir", "选择目录"), width=10, command=self.select_resource_dir).grid(row=0, column=2, padx=2)
-        ttk.Button(self.res_frame, text=self._("btn_add"), width=8, command=self.add_resource).grid(row=0, column=3, padx=4)
-        ttk.Button(self.res_frame, text=self._("btn_clear"), width=8, command=self.clear_resources).grid(row=0, column=4)
+        self.add_tip(self.resource_entry, "tip_data_add")
+        btn = ttk.Button(self.res_frame, text=self._("btn_browse_file"), width=10, command=self.select_resource_file)
+        btn.grid(row=0, column=1, padx=2)
+        self.add_tip(btn, "tip_browse_res_file")
+        btn = ttk.Button(self.res_frame, text=self._("btn_browse_dir"), width=10, command=self.select_resource_dir)
+        btn.grid(row=0, column=2, padx=2)
+        self.add_tip(btn, "tip_browse_res_dir")
+        btn = ttk.Button(self.res_frame, text=self._("btn_add"), width=8, command=self.add_resource)
+        btn.grid(row=0, column=3, padx=4)
+        self.add_tip(btn, "tip_add_res")
+        btn = ttk.Button(self.res_frame, text=self._("btn_clear"), width=8, command=self.clear_resources)
+        btn.grid(row=0, column=4)
+        self.add_tip(btn, "tip_clear_res")
 
-        hint_text = self.tr(
-            "hint_resources_input",
-            "输入路径后点击“添加”。支持：\n"
-            "• 直接填源路径（文件或目录）。目录将以同名文件夹放到临时根目录；文件将直接放到临时根目录。\n"
-            "• 若需自定义目标路径/名称，用“|”或“=>”分隔，例如：源路径|目标子路径 或 源路径=>目标子路径。"
-        )
+        hint_text = self._("hint_resources_input")
         ttk.Label(lf_res, text=hint_text, foreground="#666").grid(row=1, column=0, sticky="w", padx=0, pady=(0, 6))
 
         self.resource_listbox = tk.Listbox(lf_res, height=7, bg='white')
         self.resource_listbox.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.resource_listbox, "tip_data_list")
 
         # 隐藏导入
         lf_hidden = ttk.LabelFrame(frame, text=self._("group_hidden_imports"), padding=(10, 8))
@@ -410,10 +433,16 @@ class PyInstallerGUI:
         self.hidden_frame.columnconfigure(0, weight=1)
         self.hidden_entry = ttk.Entry(self.hidden_frame)
         self.hidden_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ttk.Button(self.hidden_frame, text=self._("btn_add"), width=8, command=self.add_hidden_import).grid(row=0, column=1, padx=5)
-        ttk.Button(self.hidden_frame, text=self._("btn_clear"), width=8, command=self.clear_hidden_imports).grid(row=0, column=2)
+        self.add_tip(self.hidden_entry, "tip_hidden_imports")
+        btn = ttk.Button(self.hidden_frame, text=self._("btn_add"), width=8, command=self.add_hidden_import)
+        btn.grid(row=0, column=1, padx=5)
+        self.add_tip(btn, "tip_add_hidden")
+        btn = ttk.Button(self.hidden_frame, text=self._("btn_clear"), width=8, command=self.clear_hidden_imports)
+        btn.grid(row=0, column=2)
+        self.add_tip(btn, "tip_clear_hidden")
         self.hidden_listbox = tk.Listbox(lf_hidden, height=4, bg='white')
         self.hidden_listbox.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.hidden_listbox, "tip_hidden_list")
 
         # 排除模块
         lf_excl = ttk.LabelFrame(frame, text=self._("group_excludes"), padding=(10, 8))
@@ -424,12 +453,16 @@ class PyInstallerGUI:
         self.exclude_frame.columnconfigure(0, weight=1)
         self.exclude_entry = ttk.Entry(self.exclude_frame)
         self.exclude_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ttk.Button(self.exclude_frame, text=self._("btn_add"), width=8, command=self.add_exclude_module).grid(row=0, column=1, padx=5)
-        ttk.Button(self.exclude_frame, text=self._("btn_clear"), width=8, command=self.clear_exclude_modules).grid(row=0, column=2)
+        self.add_tip(self.exclude_entry, "tip_excludes")
+        btn = ttk.Button(self.exclude_frame, text=self._("btn_add"), width=8, command=self.add_exclude_module)
+        btn.grid(row=0, column=1, padx=5)
+        self.add_tip(btn, "tip_add_exclude")
+        btn = ttk.Button(self.exclude_frame, text=self._("btn_clear"), width=8, command=self.clear_exclude_modules)
+        btn.grid(row=0, column=2)
+        self.add_tip(btn, "tip_clear_exclude")
         self.exclude_listbox = tk.Listbox(lf_excl, height=4, bg='white')
         self.exclude_listbox.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
-
-        self.page_assets_scroll.refresh()
+        self.add_tip(self.exclude_listbox, "tip_excludes_list")
 
     def build_page_advanced(self):
         frame = self.page_advanced
@@ -443,10 +476,16 @@ class PyInstallerGUI:
         self.hooks_dir_frame.columnconfigure(0, weight=1)
         self.hooks_dir_entry = ttk.Entry(self.hooks_dir_frame)
         self.hooks_dir_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ttk.Button(self.hooks_dir_frame, text=self._("btn_add"), width=8, command=self.add_hooks_dir).grid(row=0, column=1, padx=5)
-        ttk.Button(self.hooks_dir_frame, text=self._("btn_clear"), width=8, command=self.clear_hooks_dir).grid(row=0, column=2)
+        self.add_tip(self.hooks_dir_entry, "tip_hooks_dir")
+        btn = ttk.Button(self.hooks_dir_frame, text=self._("btn_add"), width=8, command=self.add_hooks_dir)
+        btn.grid(row=0, column=1, padx=5)
+        self.add_tip(btn, "tip_add_hooks_dir")
+        btn = ttk.Button(self.hooks_dir_frame, text=self._("btn_clear"), width=8, command=self.clear_hooks_dir)
+        btn.grid(row=0, column=2)
+        self.add_tip(btn, "tip_clear_hooks_dir")
         self.hooks_dir_listbox = tk.Listbox(lf_hooks, height=3, bg='white')
         self.hooks_dir_listbox.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.hooks_dir_listbox, "tip_hooks_list")
 
         # 运行时 Hook
         lf_rth = ttk.LabelFrame(frame, text=self._("group_runtime_hooks"), padding=(10, 8))
@@ -457,10 +496,16 @@ class PyInstallerGUI:
         self.runtime_hook_frame.columnconfigure(0, weight=1)
         self.runtime_hook_entry = ttk.Entry(self.runtime_hook_frame)
         self.runtime_hook_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ttk.Button(self.runtime_hook_frame, text=self._("btn_add"), width=8, command=self.add_runtime_hook).grid(row=0, column=1, padx=5)
-        ttk.Button(self.runtime_hook_frame, text=self._("btn_clear"), width=8, command=self.clear_runtime_hooks).grid(row=0, column=2)
+        self.add_tip(self.runtime_hook_entry, "tip_runtime_hook")
+        btn = ttk.Button(self.runtime_hook_frame, text=self._("btn_add"), width=8, command=self.add_runtime_hook)
+        btn.grid(row=0, column=1, padx=5)
+        self.add_tip(btn, "tip_add_runtime_hook")
+        btn = ttk.Button(self.runtime_hook_frame, text=self._("btn_clear"), width=8, command=self.clear_runtime_hooks)
+        btn.grid(row=0, column=2)
+        self.add_tip(btn, "tip_clear_runtime_hook")
         self.runtime_hook_listbox = tk.Listbox(lf_rth, height=3, bg='white')
         self.runtime_hook_listbox.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.runtime_hook_listbox, "tip_runtime_list")
 
         # UPX 排除
         lf_upx_ex = ttk.LabelFrame(frame, text=self._("group_upx_exclude"), padding=(10, 8))
@@ -471,35 +516,35 @@ class PyInstallerGUI:
         self.upx_excl_frame.columnconfigure(0, weight=1)
         self.upx_excl_entry = ttk.Entry(self.upx_excl_frame)
         self.upx_excl_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ttk.Button(self.upx_excl_frame, text=self._("btn_add"), width=8, command=self.add_upx_exclude).grid(row=0, column=1, padx=5)
-        ttk.Button(self.upx_excl_frame, text=self._("btn_clear"), width=8, command=self.clear_upx_exclude).grid(row=0, column=2)
+        self.add_tip(self.upx_excl_entry, "tip_upx_exclude")
+        btn = ttk.Button(self.upx_excl_frame, text=self._("btn_add"), width=8, command=self.add_upx_exclude)
+        btn.grid(row=0, column=1, padx=5)
+        self.add_tip(btn, "tip_add_upx_exclude")
+        btn = ttk.Button(self.upx_excl_frame, text=self._("btn_clear"), width=8, command=self.clear_upx_exclude)
+        btn.grid(row=0, column=2)
+        self.add_tip(btn, "tip_clear_upx_exclude")
         self.upx_excl_listbox = tk.Listbox(lf_upx_ex, height=3, bg='white')
         self.upx_excl_listbox.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.upx_excl_listbox, "tip_upx_excl_list")
 
-        # 其他开关（已移除 --noarchive；WinSxS 选项按版本显示）
+        # 其他开关（按版本显示 WinSxS）
         options_row = ttk.LabelFrame(frame, text=self._("group_other_switches"), padding=(10, 8))
         options_row.grid(row=3, column=0, sticky="nsew", padx=5, pady=5)
         self.disable_windowed_tb = tk.BooleanVar(value=False)
-
-        ttk.Checkbutton(options_row, text=self._("check_disable_windowed_tb"), variable=self.disable_windowed_tb).grid(row=0, column=0, sticky="w", padx=5, pady=3)
+        cb = ttk.Checkbutton(options_row, text=self._("check_disable_windowed_tb"), variable=self.disable_windowed_tb)
+        cb.grid(row=0, column=0, sticky="w", padx=5, pady=3)
+        self.add_tip(cb, "tip_disable_windowed_tb")
 
         if self.has_winsxs_opts:
             cb1 = ttk.Checkbutton(options_row, text=self._("check_win_no_prefer_redirects"), variable=self.win_no_prefer_redirects)
             cb1.grid(row=1, column=0, sticky="w", padx=5, pady=3)
             cb2 = ttk.Checkbutton(options_row, text=self._("check_win_private_assemblies"), variable=self.win_private_assemblies)
             cb2.grid(row=1, column=1, sticky="w", padx=5, pady=3)
-            tip1 = self.tr("tip_win_no_prefer_redirects",
-                           "仅 Windows（且 PyInstaller < 6）。禁用对 WinSxS 清单重定向的优先使用，改用常规 DLL 搜索顺序。")
-            tip2 = self.tr("tip_win_private_assemblies",
-                           "仅 Windows（且 PyInstaller < 6）。启用私有程序集，优先使用程序目录内的 DLL。")
-            Tooltip(cb1, tip1)
-            Tooltip(cb2, tip2)
         else:
-            # 显示版本提示（可选）
             if sys.platform.startswith('win'):
-                note = self.tr("note_winsxs_removed",
-                               "提示：PyInstaller 6 起移除了 WinSxS 相关参数（--win-no-prefer-redirects / --win-private-assemblies）。")
-                ttk.Label(options_row, text=note, foreground="#666").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(3, 0))
+                note = self._("note_winsxs_removed")
+                if note != "note_winsxs_removed":
+                    ttk.Label(options_row, text=note, foreground="#666").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(3, 0))
 
         # 运行时临时目录
         lf_rt = ttk.LabelFrame(frame, text=self._("label_runtime_tmpdir"), padding=(10, 8))
@@ -507,6 +552,7 @@ class PyInstallerGUI:
         lf_rt.columnconfigure(0, weight=1)
         self.runtime_tmpdir_entry = ttk.Entry(lf_rt)
         self.runtime_tmpdir_entry.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.runtime_tmpdir_entry, "tip_runtime_tmpdir")
 
         # 额外参数
         lf_extra = ttk.LabelFrame(frame, text=self._("label_extra_args"), padding=(10, 8))
@@ -514,6 +560,7 @@ class PyInstallerGUI:
         lf_extra.columnconfigure(0, weight=1)
         self.extra_args_entry = ttk.Entry(lf_extra)
         self.extra_args_entry.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+        self.add_tip(self.extra_args_entry, "tip_extra_args")
 
         self.page_adv_scroll.refresh()
 
@@ -521,7 +568,6 @@ class PyInstallerGUI:
         frame = self.page_logs
         self.console_output = scrolledtext.ScrolledText(frame, wrap=tk.WORD, height=10, bg='#23272A', fg='white')
         self.console_output.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        # 显示 PyInstaller 版本信息，便于诊断
         ver = self.pyi_version_str or "unknown"
         self.add_to_console(f"[INFO] PyInstaller version detected: {ver}\n")
         self.add_to_console(self._("log_ready") + "\n")
@@ -530,23 +576,28 @@ class PyInstallerGUI:
     def create_action_buttons(self):
         frame = ttk.Frame(self.main_frame)
         frame.grid(row=1, column=0, sticky="e", padx=5, pady=6)
+
         self.btn_build = ttk.Button(frame, text=self._("btn_build"), command=self.start_build, width=15)
         self.btn_build.grid(row=0, column=0, padx=5)
-        self.btn_clean = ttk.Button(frame, text=self._("btn_clean"), command=self.clean_project, width=15)
+        self.add_tip(self.btn_build, "tip_btn_build")
+
+        self.btn_clean = ttk.Button(frame, text=self._("btn_clean_tmp"), command=self.clean_project, width=15)
         self.btn_clean.grid(row=0, column=1, padx=5)
+        self.add_tip(self.btn_clean, "tip_btn_clean")
+
         self.btn_exit = ttk.Button(frame, text=self._("btn_exit"), command=self.root.destroy, width=15)
         self.btn_exit.grid(row=0, column=2, padx=5)
+        self.add_tip(self.btn_exit, "tip_btn_exit")
 
     # --------------------- 事件处理：资源 ---------------------
     def _expand_path(self, p: str) -> str:
         return os.path.abspath(os.path.expanduser(os.path.expandvars(p.strip('"').strip("'"))))
 
     def _parse_resource_input(self, text: str):
-        """返回 (abs_source, dest_rel) 或 None"""
+        """返回 (abs_source, dest_rel) 或 None；支持 “源|目标” 或 “源=>目标”"""
         if not text:
             return None
         raw = text.strip()
-        # 支持 “源|目标” 或 “源=>目标”，避免与 Windows 盘符冒号冲突
         if "|" in raw:
             src, dest = raw.split("|", 1)
         elif "=>" in raw:
@@ -560,14 +611,12 @@ class PyInstallerGUI:
             return None
 
         if dest:
-            dest = dest.strip().lstrip("\\/")  # 目标是包内相对路径
+            dest = dest.strip().lstrip("\\/")
         else:
-            # 默认规则：目录→同名文件夹；文件→临时根目录（保留文件名）
             if os.path.isdir(src):
                 dest = os.path.basename(os.path.normpath(src)) or "."
             else:
                 dest = "."
-
         return (src, dest)
 
     def add_resource(self):
@@ -585,13 +634,13 @@ class PyInstallerGUI:
         self.resource_listbox.delete(0, tk.END)
 
     def select_resource_file(self):
-        p = filedialog.askopenfilename(title=self.tr("title_select_resource_file", "选择资源文件"))
+        p = filedialog.askopenfilename(title=self._("title_select_resource_file"))
         if p:
             self.resource_entry.delete(0, tk.END)
             self.resource_entry.insert(0, p)
 
     def select_resource_dir(self):
-        p = filedialog.askdirectory(title=self.tr("title_select_resource_dir", "选择资源目录"))
+        p = filedialog.askdirectory(title=self._("title_select_resource_dir"))
         if p:
             self.resource_entry.delete(0, tk.END)
             self.resource_entry.insert(0, p)
@@ -605,8 +654,6 @@ class PyInstallerGUI:
             self.script_path = os.path.abspath(script_path)
             self.script_entry.delete(0, tk.END)
             self.script_entry.insert(0, self.script_path)
-
-            # 更换脚本后重置“输出名称”为脚本文件名（不含扩展名）
             file_name = os.path.splitext(os.path.basename(script_path))[0]
             self.name_entry.delete(0, tk.END)
             self.name_entry.insert(0, file_name)
@@ -734,7 +781,6 @@ class PyInstallerGUI:
         if not self.upx_var.get() or self.upx_available is False:
             return
 
-        # 级别 1~10，10 也按 9 处理
         try:
             level = int(round(float(self.upx_level_var.get())))
         except Exception:
@@ -877,12 +923,9 @@ class PyInstallerGUI:
             return None
 
         command = ["pyinstaller"]
-
-        # 模式与控制台
         command.append(self.mode_var.get())
         command.append(self.console_var.get())
 
-        # 图标
         icon_path = self.icon_entry.get().strip()
         if icon_path:
             ipath = os.path.abspath(icon_path)
@@ -891,7 +934,6 @@ class PyInstallerGUI:
             else:
                 self.add_to_console(self._("warn_icon_missing").format(path=ipath) + "\n")
 
-        # 版本信息文件
         ver_file = self.version_entry.get().strip()
         if ver_file:
             vpath = os.path.abspath(ver_file)
@@ -900,57 +942,46 @@ class PyInstallerGUI:
             else:
                 self.add_to_console(self._("warn_version_missing").format(path=vpath) + "\n")
 
-        # 输出名称
         if self.name_entry.get():
             command.extend(["-n", self.name_entry.get()])
 
-        # 输出目录
         distpath = self.distpath_entry.get().strip()
         if distpath:
             command.extend(["--distpath", distpath])
 
-        # 禁用 PyInstaller 内置 UPX，由我们在构建成功后自行压缩
         command.append("--noupx")
 
-        # 资源（目录/文件）
         for source, dest in self.resources_list:
             command.extend(["--add-data", f"{source}{os.pathsep}{dest}"])
 
-        # 隐藏导入 / 排除模块
         for mod in self.hidden_imports_list:
             command.extend(["--hidden-import", mod])
         for mod in self.exclude_modules_list:
             command.extend(["--exclude-module", mod])
 
-        # Hooks 目录 / 运行时 Hook
         for p in self.hooks_dir_list:
             command.extend(["--additional-hooks-dir", p])
         for p in self.runtime_hooks_list:
             command.extend(["--runtime-hook", p])
 
-        # 调试等级（支持 noarchive 作为 -d 参数值）
         dbg_label = self.debug_level.get()
         dbg_value = self.debug_map.get(dbg_label)
         if dbg_value:
             command.extend(["--debug", dbg_value])
 
-        # 禁用 windowed traceback
         if self.disable_windowed_tb.get():
             command.append("--disable-windowed-traceback")
 
-        # 运行时临时目录
         rt_tmp = self.runtime_tmpdir_entry.get().strip()
         if rt_tmp:
             command.extend(["--runtime-tmpdir", rt_tmp])
 
-        # Windows 专有（仅在 < 6.0 时使用）
         if self.has_winsxs_opts:
             if self.win_no_prefer_redirects.get():
                 command.append("--win-no-prefer-redirects")
             if self.win_private_assemblies.get():
                 command.append("--win-private-assemblies")
 
-        # 额外参数
         extra_args = self.extra_args_entry.get().strip()
         if extra_args:
             try:
@@ -958,7 +989,6 @@ class PyInstallerGUI:
             except Exception as e:
                 self.add_to_console(self._("err_extra_args").format(err=str(e)) + "\n")
 
-        # 脚本
         if os.path.exists(self.script_path):
             command.append(self.script_path)
         else:
@@ -992,9 +1022,7 @@ class PyInstallerGUI:
             return_code = process.wait()
 
             if return_code == 0:
-                # 构建成功后执行 UPX 后处理
                 self.post_upx_compress()
-
                 self.add_to_console("\n" + self._("log_build_success") + " ✓\n")
                 distpath = self.distpath_entry.get()
                 if distpath:
@@ -1028,9 +1056,7 @@ class PyInstallerGUI:
         if not command_list:
             return
 
-        # 点击开始后自动切换到“日志”分页
         self.notebook.select(self.page_logs)
-
         self.enable_buttons(False)
         self.add_to_console(self._("log_building") + "\n")
 
@@ -1045,20 +1071,17 @@ class PyInstallerGUI:
 
         self.add_to_console("\n" + self._("log_cleaning") + "\n")
         try:
-            # 删除build目录
             build_dir = "build"
             if os.path.exists(build_dir):
                 shutil.rmtree(build_dir)
                 self.add_to_console(self._("log_deleted").format(name=build_dir) + "\n")
 
-            # 删除spec文件
             script_name = os.path.splitext(os.path.basename(self.script_path))[0]
             spec_file = f"{script_name}.spec"
             if os.path.exists(spec_file):
                 os.remove(spec_file)
                 self.add_to_console(self._("log_deleted").format(name=spec_file) + "\n")
 
-            # 删除生成的__pycache__
             cache_dir = "__pycache__"
             if os.path.exists(cache_dir):
                 shutil.rmtree(cache_dir)
@@ -1079,7 +1102,14 @@ class PyInstallerGUI:
 
 
 if __name__ == "__main__":
+    # 1) 启用高 DPI（Windows）
     apply_high_dpi_awareness()
+    # 2) 创建 Tk，并同步 tk scaling（确保不同缩放下视觉一致）
     root = tk.Tk()
+    try:
+        root.tk.call('tk', 'scaling', root.winfo_fpixels('1i') / 72.0)
+    except Exception:
+        pass
+    # 3) 传入 root（保持原布局与控件数）
     app = PyInstallerGUI(root)
     root.mainloop()

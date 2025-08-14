@@ -27,6 +27,7 @@ STRINGS = {
     "label_debug_level": "Debug level:",
     "label_runtime_tmpdir": "Runtime temp dir (--runtime-tmpdir)",
     "label_extra_args": "Extra CLI args:",
+    "label_upx_level": "UPX level",
 
     "radio_onefile": "One-file (-F)",
     "radio_onedir": "One-dir (-D)",
@@ -49,9 +50,16 @@ STRINGS = {
     "btn_clear": "Clear",
     "btn_build": "Build",
     "btn_clean": "Clean",
+    "btn_clean_tmp": "Clean temp files",
     "btn_exit": "Exit",
 
+    "btn_browse_file": "Choose file",
+    "btn_browse_dir": "Choose folder",
+
     "title_select_version_file": "Select version info file",
+    "title_select_resource_file": "Select resource file",
+    "title_select_resource_dir": "Select resource folder",
+
     "filter_py": "Python script",
     "filter_all": "All files",
     "filter_ico": "Icon file",
@@ -89,4 +97,70 @@ STRINGS = {
     "upx_installed_ok": "UPX installed and available.",
     "upx_added_to_path": "Found UPX and added to PATH: {path}",
     "upx_unavailable_disable": "Could not configure UPX; UPX compression will be disabled (--noupx).",
+
+    # ---------- Tooltips (concise + tiny examples) ----------
+    "tip_main_script": "Pick the entry .py script. e.g. main.py. Output name defaults to the script name.",
+    "tip_browse_script": "Browse and choose the entry script (e.g. src/app.py).",
+    "tip_output_name": "Leave empty to use script name. Examples: MyApp, Toolbox.",
+    "tip_distpath": "Directory for build outputs (default: dist). Example: D:\\builds\\MyApp.",
+    "tip_browse_dist": "Browse and choose the output directory (created if missing).",
+    "tip_icon": "Optional .ico for Windows EXE icon. Example: assets\\app.ico.",
+    "tip_browse_icon": "Pick an .ico file; you can convert from PNG online.",
+    "tip_version_file": "File for --version-file; may include company/name/version metadata.",
+    "tip_browse_version": "Choose a version file (e.g. version.txt / version.ini).",
+
+    "tip_onefile": "Single executable; extracts to a temp dir at runtime. Larger/slower to start.",
+    "tip_onedir": "Folder output; faster start and easier to debug. Ship the whole folder.",
+    "tip_console": "Show console window (good for CLI or debugging prints/logs).",
+    "tip_windowed": "No console (good for GUI). Exceptions show in a message box.",
+
+    "tip_use_upx": "After a successful build, run UPX on .exe/.dll/.pyd to reduce size.",
+    "tip_upx_level": "UPX level 1–9: 1=fastest/least compression; 9=smallest/slowest. Suggest 5–7.",
+    "tip_debug": "PyInstaller debug: imports=log imports; noarchive=unpack archive; all=more verbose.",
+
+    "hint_resources_input": "Enter then Add. Support: src (file/dir), or src|dest for package path.\nExamples: assets|assets   C:\\img\\logo.png|images\\logo.png",
+
+    "tip_data_add": "Bundle extra files/dirs. Examples: data|data, config.json|cfg\\config.json.",
+    "tip_browse_res_file": "Pick a resource file (images, config, etc.).",
+    "tip_browse_res_dir": "Pick a resource folder (kept under the same folder name).",
+    "tip_add_res": "Add the path above to the list (supports src|dest).",
+    "tip_clear_res": "Clear the resource list.",
+    "tip_data_list": "Added resource mappings (src → dest).",
+
+    "tip_hidden_imports": "Explicit modules PyInstaller can’t discover. Example: pkg.submod.",
+    "tip_add_hidden": "Add one hidden import (press Enter to continue adding).",
+    "tip_clear_hidden": "Clear the hidden-import list.",
+    "tip_hidden_list": "Modules passed via --hidden-import.",
+
+    "tip_excludes": "Modules to exclude from the build. Examples: tkinter, torch.tests.",
+    "tip_add_exclude": "Add an excluded module (package or submodule).",
+    "tip_clear_exclude": "Clear the exclude list.",
+    "tip_excludes_list": "Modules passed via --exclude-module.",
+
+    "tip_hooks_dir": "Extra hooks search directories (containing hook-*.py).",
+    "tip_add_hooks_dir": "Add a hooks directory.",
+    "tip_clear_hooks_dir": "Clear the hooks-dir list.",
+    "tip_hooks_list": "Added hooks directories.",
+
+    "tip_runtime_hook": "Script executed at startup (set env vars, adjust paths). Example: fix_paths.py.",
+    "tip_add_runtime_hook": "Add a runtime hook file.",
+    "tip_clear_runtime_hook": "Clear the runtime-hook list.",
+    "tip_runtime_list": "Added runtime hooks.",
+
+    "tip_upx_exclude": "Prevent certain files from UPX. Globs supported: *.dll, *_debug.pyd.",
+    "tip_add_upx_exclude": "Add one UPX exclude pattern.",
+    "tip_clear_upx_exclude": "Clear the UPX exclude list.",
+    "tip_upx_excl_list": "Files matched here will be skipped by UPX.",
+
+    "tip_disable_windowed_tb": "In windowed mode, disable the traceback message box.",
+
+    # —— Newly emphasized tooltips you requested ——
+    "tip_runtime_tmpdir": "Temp dir used by one-file at runtime. Must be writable.\nExamples: %TEMP%\\myapp or D:\\tmp\\myapp.",
+    "tip_extra_args": "Raw args passed directly to PyInstaller.\nExamples: --collect-all pkg --paths C:\\py\\libs.\nNote: --add-data uses 'src;dest' on Windows, 'src:dest' on Linux/macOS.",
+
+    "tip_btn_build": "Start build (auto-switch to Logs tab).",
+    "tip_btn_clean": "Delete build, .spec (same name as script), and __pycache__.",
+    "tip_btn_exit": "Quit the app.",
+
+    "note_winsxs_removed": "Note: WinSxS-related flags were removed since PyInstaller 6.",
 }
