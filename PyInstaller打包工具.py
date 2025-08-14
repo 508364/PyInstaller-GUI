@@ -10,13 +10,14 @@ import shutil
 import site
 import fnmatch
 import re
+import time
 
 # 保障能导入同目录下的 i18n 包
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-# ---------------- i18n 导入（沿用你的机制） ----------------
+# ---------------- i18n 导入 ----------------
 try:
     from i18n import get_translator, detect_language_code
 except Exception:
@@ -60,7 +61,10 @@ class Tooltip:
 
     def _unschedule(self, _event=None):
         if self._after_id:
-            self.widget.after_cancel(self._after_id)
+            try:
+                self.widget.after_cancel(self._after_id)
+            except Exception:
+                pass
             self._after_id = None
         self._hide()
 
@@ -188,12 +192,150 @@ def detect_pyinstaller_version():
     return parse_version_tuple(vstr), vstr
 
 
+# ---------------- 简单的安装等待窗口（不可关闭） ----------------
+class InstallWaitingDialog(tk.Toplevel):
+    def __init__(self, parent, title, label_text):
+        super().__init__(parent)
+        self.title(title)
+        self.resizable(False, False)
+        # 禁用右上角关闭按钮
+        self.protocol("WM_DELETE_WINDOW", lambda: None)
+        # 置顶 & 模态
+        try:
+            # 父窗未映射时，不要设置 transient 到隐藏父窗
+            if parent and parent.winfo_ismapped():
+                self.transient(parent)
+            self.grab_set()
+            # 硬置顶 + 抬到最前，确保可见
+            self.attributes("-topmost", True)
+            self.lift()
+            # 稍后撤销置顶，避免影响后续窗口层级
+            self.after(300, lambda: self.attributes("-topmost", False))
+        except Exception:
+            pass
+
+        frm = ttk.Frame(self, padding=16)
+        frm.grid(row=0, column=0, sticky="nsew")
+        frm.columnconfigure(0, weight=1)
+
+        lbl = ttk.Label(frm, text=label_text, justify="left")
+        lbl.grid(row=0, column=0, sticky="w")
+
+        # 不定进度动画（视觉反馈，不显示百分比）
+        self.bar = ttk.Progressbar(frm, orient="horizontal", mode="indeterminate", length=360)
+        self.bar.grid(row=1, column=0, sticky="ew", pady=(12, 0))
+        try:
+            self.bar.start(10)  # 数值越小越快
+        except Exception:
+            pass
+
+        # 居中
+        self.update_idletasks()
+        self._center(parent)
+
+    def _center(self, parent):
+        try:
+            self.update_idletasks()
+            # 如果父窗已隐藏，改用屏幕中心
+            if not parent.winfo_ismapped():
+                sw = self.winfo_screenwidth()
+                sh = self.winfo_screenheight()
+                w = self.winfo_reqwidth()
+                h = self.winfo_reqheight()
+                x = (sw - w) // 2
+                y = (sh - h) // 3
+            else:
+                px, py = parent.winfo_rootx(), parent.winfo_rooty()
+                pw, ph = parent.winfo_width(), parent.winfo_height()
+                w, h = self.winfo_reqwidth(), self.winfo_reqheight()
+                x = px + (pw - w) // 2
+                y = py + (ph - h) // 2
+            self.geometry(f"+{max(0,x)}+{max(0,y)}")
+        except Exception:
+            pass
+
+
+def install_pyinstaller_waiting(root, lang_code, _):
+    """显示不可关闭的等待窗口，不显示百分比。成功返回 True，失败返回 False。"""
+    # 文案（若 key 不存在，则按语言给出兜底）
+    title = _("install_window_title")
+    if title == "install_window_title":
+        title = "安装 PyInstaller" if lang_code.lower().startswith("zh") else "Installing PyInstaller"
+
+    label_text = _("install_progress_label_wait")
+    if label_text == "install_progress_label_wait":
+        label_text = ("正在安装 PyInstaller（窗口将自动关闭），安装速度取决于网速，请耐心等待…"
+                      if lang_code.lower().startswith("zh")
+                      else "Installing PyInstaller (this window will close automatically). Speed depends on your network…")
+
+    dlg = InstallWaitingDialog(root, title, label_text)
+    dlg.update()      # 立刻绘制
+    dlg.lift()        # 再次抬到前台
+
+    # 选择镜像
+    use_tsinghua = (lang_code.lower().startswith("zh_cn"))
+    if use_tsinghua:
+        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller",
+                   "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
+    else:
+        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller"]
+
+    result = {"code": -1}
+
+    def worker():
+        try:
+            creationflags = 0
+            if sys.platform.startswith('win') and hasattr(subprocess, "CREATE_NO_WINDOW"):
+                creationflags = subprocess.CREATE_NO_WINDOW
+            proc = subprocess.Popen(
+                pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, creationflags=creationflags
+            )
+            # 实际上我们不解析输出，只等待完成
+            for _ in iter(proc.stdout.readline, ''):
+                pass
+            result["code"] = proc.wait()
+        except Exception:
+            result["code"] = -1
+
+    th = threading.Thread(target=worker, daemon=True)
+    th.start()
+
+    # 主循环等待线程完成
+    while th.is_alive():
+        try:
+            root.update()
+        except Exception:
+            pass
+        time.sleep(0.02)
+
+    # 结束并关闭等待窗
+    try:
+        dlg.bar.stop()
+    except Exception:
+        pass
+    try:
+        dlg.grab_release()
+    except Exception:
+        pass
+    try:
+        dlg.destroy()
+    except Exception:
+        pass
+
+    return result["code"] == 0
+
+
 class PyInstallerGUI:
     def __init__(self, root):
         # 翻译器（只显示一种语言）
         lang_code = detect_language_code()
         self._ = get_translator(lang_code)
         self.lang_code = lang_code
+
+        # 关闭流程标记 & tooltip 列表
+        self.is_closing = False
+        self._tooltips = []
 
         # 检测 PyInstaller 版本（用于 UI/参数兼容）
         self.pyi_version_tuple, self.pyi_version_str = detect_pyinstaller_version()
@@ -264,6 +406,9 @@ class PyInstallerGUI:
         self.build_page_logs()
         self.create_action_buttons()
 
+        # 绑定关闭协议
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
         # 刷新滚动容器
         self.page_assets_scroll.refresh()
         self.page_adv_scroll.refresh()
@@ -280,7 +425,8 @@ class PyInstallerGUI:
         try:
             text = self._(key)
             if text and text != key:
-                Tooltip(widget, text)
+                t = Tooltip(widget, text)
+                self._tooltips.append(t)
         except Exception:
             pass
 
@@ -353,49 +499,62 @@ class PyInstallerGUI:
         btn.grid(row=3, column=2, padx=5, pady=5)
         self.add_tip(btn, "tip_browse_version")
 
-        # ========== UPX 选项区域（单独一行容器；内部三行：上=内置，中=滑块，下=使用UPX/--force） ==========
+        # ========== UPX 选项区域 ==========
         upx_row = ttk.Frame(opt_frame)
         upx_row.grid(row=4, column=0, columnspan=3, sticky="ew", padx=5, pady=(0, 5))
         upx_row.columnconfigure(1, weight=1)
 
         # 变量
-        self.upx_var = tk.BooleanVar(value=True)           # 使用UPX（外压或内压）
-        self.upx_force_var = tk.BooleanVar(value=False)    # 仅外压生效
-        self.upx_internal_var = tk.BooleanVar(value=False) # 是否使用内置UPX
+        self.upx_var = tk.BooleanVar(value=True)            # 使用UPX（总开关）
+        self.upx_force_var = tk.BooleanVar(value=False)     # 仅外压生效
+        self.upx_internal_var = tk.BooleanVar(value=False)  # 是否使用内置UPX
+        self.upx_external_dlls_only_var = tk.BooleanVar(value=False)  # 仅压 DLL/PYD，不压主 EXE（仅 -D）
 
-        # 顶部：内置 UPX（左对齐，位于滑块上方）
-        cb_int = ttk.Checkbutton(upx_row, text=self._("check_upx_internal"), variable=self.upx_internal_var)
-        cb_int.grid(row=0, column=0, sticky="w", padx=0, pady=(0, 6))
-        self.add_tip(cb_int, "tip_upx_internal")
+        # 0：使用 UPX（总开关）
+        self.cb_use_upx = ttk.Checkbutton(upx_row, text=self._("check_use_upx"), variable=self.upx_var)
+        self.cb_use_upx.grid(row=0, column=0, sticky="w", padx=0, pady=(0, 6))
+        self.add_tip(self.cb_use_upx, "tip_use_upx")
 
-        # 中间：UPX 压缩级别滑块（外压时可用）—— 无刻度 + 右侧数字
-        ttk.Label(upx_row, text=self._("label_upx_level")).grid(row=1, column=0, sticky="w", padx=(0, 8))
+        # 1：使用内置 UPX（放在滑块上方、靠左）
+        self.cb_upx_internal = ttk.Checkbutton(upx_row, text=self._("check_upx_internal"), variable=self.upx_internal_var)
+        self.cb_upx_internal.grid(row=1, column=0, sticky="w", padx=0, pady=(0, 6))
+        self.add_tip(self.cb_upx_internal, "tip_upx_internal")
+
+        # 2：UPX 压缩级别（外压时可用）—— 无刻度 + 右侧数字
+        self.lbl_upx_level = ttk.Label(upx_row, text=self._("label_upx_level"))
+        self.lbl_upx_level.grid(row=2, column=0, sticky="w", padx=(0, 8))
         self.upx_level_var = tk.DoubleVar(value=5)
         self.upx_level_scale = ttk.Scale(
             upx_row, from_=1, to=10, orient="horizontal",
             variable=self.upx_level_var, command=lambda v: self._on_upx_level_changed(v)
         )
-        self.upx_level_scale.grid(row=1, column=1, sticky="ew")
+        self.upx_level_scale.grid(row=2, column=1, sticky="ew")
         self.add_tip(self.upx_level_scale, "tip_upx_level")
         self.upx_level_value = ttk.Label(upx_row, text="5")
-        self.upx_level_value.grid(row=1, column=2, sticky="w", padx=(8, 0))
+        self.upx_level_value.grid(row=2, column=2, sticky="w", padx=(8, 0))
 
-        # 底部：使用UPX（外压/内压总开关）与 --force（仅外压）
-        cb_use = ttk.Checkbutton(upx_row, text=self._("check_use_upx"), variable=self.upx_var)
-        cb_use.grid(row=2, column=0, sticky="w", padx=0, pady=(6, 0))
-        self.add_tip(cb_use, "tip_use_upx")
-
+        # 3+4：同一行 —— 左“--force”，右“仅压 DLL/PYD，不压主 EXE”（只在 -D 显示）
         self.upx_force_cb = ttk.Checkbutton(upx_row, text=self._("check_upx_force"), variable=self.upx_force_var)
-        self.upx_force_cb.grid(row=2, column=1, sticky="w", padx=(10, 0), pady=(6, 0))
+        self.upx_force_cb.grid(row=4, column=0, sticky="w", padx=0, pady=(6, 0))
         self.add_tip(self.upx_force_cb, "tip_upx_force")
 
-        # 当“使用UPX”“使用--force”“使用内置UPX”变化时，更新控件可用性
+        self.cb_only_libs = ttk.Checkbutton(
+            upx_row, text=self._("check_upx_only_libs"),
+            variable=self.upx_external_dlls_only_var
+        )
+        self.cb_only_libs.grid(row=4, column=1, sticky="w", padx=(12, 0), pady=(6, 0))
+        self.add_tip(self.cb_only_libs, "tip_upx_only_libs")
+
+        # 响应模式/UPX切换
         self.upx_var.trace_add("write", lambda *a: self._update_upx_controls_state())
         self.upx_internal_var.trace_add("write", lambda *a: self._update_upx_controls_state())
         self.upx_force_var.trace_add("write", lambda *a: self._update_upx_controls_state())
+        self.mode_var.trace_add("write", lambda *a: (self._update_only_libs_visibility(), self._update_upx_controls_state()))
+        # 初始状态
+        self._update_only_libs_visibility()
         self._update_upx_controls_state()
 
-        # 调试等级（保持原位置编号：紧跟 UPX 区块后）
+        # 调试等级
         ttk.Label(opt_frame, text=self._("label_debug_level")).grid(row=6, column=0, sticky="w", padx=5, pady=5)
         self.debug_map = {
             self._("debug_off"): None,
@@ -408,6 +567,17 @@ class PyInstallerGUI:
                                         values=list(self.debug_map.keys()), width=20)
         self.debug_combo.grid(row=6, column=1, sticky="w", padx=5, pady=5)
         self.add_tip(self.debug_combo, "tip_debug")
+
+    def _update_only_libs_visibility(self):
+        """根据打包模式隐藏/显示“仅压 DLL/PYD，不压主 EXE”（放在 --force 的右边：row=4, col=1）"""
+        try:
+            if self.mode_var.get() == "-D":
+                self.cb_only_libs.grid_configure(row=4, column=1, sticky="w", padx=(12, 0), pady=(6, 0))
+                self.cb_only_libs.grid()
+            else:
+                self.cb_only_libs.grid_remove()
+        except Exception:
+            pass
 
     def build_page_assets(self):
         frame = self.page_assets
@@ -588,7 +758,6 @@ class PyInstallerGUI:
         frame = self.page_logs
         self.console_output = scrolledtext.ScrolledText(frame, wrap=tk.WORD, height=10, bg='#23272A', fg='white')
         self.console_output.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        # 彩色標籤
         try:
             self.console_output.tag_config('green', foreground='lightgreen')
         except Exception:
@@ -610,11 +779,11 @@ class PyInstallerGUI:
         self.btn_clean.grid(row=0, column=1, padx=5)
         self.add_tip(self.btn_clean, "tip_btn_clean")
 
-        self.btn_exit = ttk.Button(frame, text=self._("btn_exit"), command=self.root.destroy, width=15)
+        self.btn_exit = ttk.Button(frame, text=self._("btn_exit"), command=self.on_close, width=15)
         self.btn_exit.grid(row=0, column=2, padx=5)
         self.add_tip(self.btn_exit, "tip_btn_exit")
 
-    # --------------------- 事件处理：资源 ---------------------
+    # --------------------- 事件处理/数据 ---------------------
     def _expand_path(self, p: str) -> str:
         return os.path.abspath(os.path.expanduser(os.path.expandvars(p.strip('"').strip("'"))))
 
@@ -659,21 +828,21 @@ class PyInstallerGUI:
         self.resource_listbox.delete(0, tk.END)
 
     def select_resource_file(self):
-        p = filedialog.askopenfilename(title=self._("title_select_resource_file"))
+        p = filedialog.askopenfilename(title=self._("title_select_resource_file"), parent=self.root)
         if p:
             self.resource_entry.delete(0, tk.END)
             self.resource_entry.insert(0, p)
 
     def select_resource_dir(self):
-        p = filedialog.askdirectory(title=self._("title_select_resource_dir"))
+        p = filedialog.askdirectory(title=self._("title_select_resource_dir"), mustexist=True)
         if p:
             self.resource_entry.delete(0, tk.END)
             self.resource_entry.insert(0, p)
 
-    # --------------------- 事件处理：其他 ---------------------
     def select_script(self):
         script_path = filedialog.askopenfilename(
-            filetypes=[(self._("filter_py"), "*.py"), (self._("filter_all"), "*.*")]
+            filetypes=[(self._("filter_py"), "*.py"), (self._("filter_all"), "*.*")],
+            parent=self.root
         )
         if script_path:
             self.script_path = os.path.abspath(script_path)
@@ -684,14 +853,15 @@ class PyInstallerGUI:
             self.name_entry.insert(0, file_name)
 
     def select_distpath(self):
-        distpath = filedialog.askdirectory()
+        distpath = filedialog.askdirectory(parent=self.root)
         if distpath:
             self.distpath_entry.delete(0, tk.END)
             self.distpath_entry.insert(0, os.path.abspath(distpath))
 
     def select_icon(self):
         icon_path = filedialog.askopenfilename(
-            filetypes=[(self._("filter_ico"), "*.ico"), (self._("filter_all"), "*.*")]
+            filetypes=[(self._("filter_ico"), "*.ico"), (self._("filter_all"), "*.*")],
+            parent=self.root
         )
         if icon_path:
             self.icon_path = os.path.abspath(icon_path)
@@ -701,7 +871,8 @@ class PyInstallerGUI:
     def select_version_file(self):
         ver_path = filedialog.askopenfilename(
             title=self._("title_select_version_file"),
-            filetypes=[(self._("filter_version"), "*.txt;*.ver;*.version"), (self._("filter_all"), "*.*")]
+            filetypes=[(self._("filter_version"), "*.txt;*.ver;*.version"), (self._("filter_all"), "*.*")],
+            parent=self.root
         )
         if ver_path:
             self.version_file_path = os.path.abspath(ver_path)
@@ -765,18 +936,26 @@ class PyInstallerGUI:
         self.upx_exclude_list = []
         self.upx_excl_listbox.delete(0, tk.END)
 
+    # --------------------- 控制台输出（关闭后拦截） ---------------------
     def add_to_console(self, text):
-        self.console_output.insert(tk.END, text)
-        self.console_output.see(tk.END)
-        self.console_output.update_idletasks()
+        if self.is_closing:
+            return
+        try:
+            self.console_output.insert(tk.END, text)
+            self.console_output.see(tk.END)
+            self.console_output.update_idletasks()
+        except Exception:
+            pass
 
     def add_colored(self, text, tag='green'):
+        if self.is_closing:
+            return
         try:
             self.console_output.insert(tk.END, text, tag)
+            self.console_output.see(tk.END)
+            self.console_output.update_idletasks()
         except Exception:
-            self.console_output.insert(tk.END, text)
-        self.console_output.see(tk.END)
-        self.console_output.update_idletasks()
+            pass
 
     # --------------------- UPX 控件与后处理 ---------------------
     def _on_upx_level_changed(self, val):
@@ -788,21 +967,33 @@ class PyInstallerGUI:
         self.upx_level_value.config(text=str(v))
 
     def _update_upx_controls_state(self):
-        """当未勾选“使用UPX”或勾选了“使用内置UPX”时禁用外压控件"""
-        enable_external = self.upx_var.get() and (not self.upx_internal_var.get())
-        state = "normal" if enable_external else "disabled"
-        # 滑块与数字
+        """统一根据『使用UPX』总开关 + 内置/外压 + 模式(-F/-D) 切换控件状态"""
+        use_upx = self.upx_var.get()
+        use_internal = self.upx_internal_var.get()
+        external_enabled = use_upx and (not use_internal)
+
         try:
-            self.upx_level_scale.state([state])
-        except Exception:
-            self.upx_level_scale.configure(state=state)
-        try:
-            self.upx_level_value.configure(state=state)
+            self.cb_upx_internal.configure(state="normal" if use_upx else "disabled")
         except Exception:
             pass
-        # --force 复选框
+
         try:
-            self.upx_force_cb.configure(state=state)
+            self.upx_level_scale.configure(state="normal" if external_enabled else "disabled")
+        except Exception:
+            pass
+        try:
+            self.upx_level_value.configure(state="normal" if external_enabled else "disabled")
+        except Exception:
+            pass
+
+        try:
+            self.upx_force_cb.configure(state="normal" if external_enabled else "disabled")
+        except Exception:
+            pass
+
+        try:
+            only_libs_state = "normal" if (external_enabled and self.mode_var.get() == "-D") else "disabled"
+            self.cb_only_libs.configure(state=only_libs_state)
         except Exception:
             pass
 
@@ -818,33 +1009,27 @@ class PyInstallerGUI:
         return False
 
     def post_upx_compress(self):
-        """在构建成功后，按滑块级别运行 UPX 压缩（仅外压时）。
-        若目标为启用 GUARD_CF 的 PE，未启用 --force 则跳过并以绿色提示可在基本设置勾选 --force。
+        """构建成功后按滑块级别运行 UPX（仅外压）。
+        遇到 GUARD_CF/CFG 且未启用 --force 时跳过并提示绿色引导。
         """
-        # 非外压场景直接返回（未勾选UPX 或 选择了内置UPX）
         if not self.upx_var.get() or self.upx_internal_var.get():
             return
         if self.upx_available is False:
             return
 
-        # 读取滑块级别
         try:
             level = int(round(float(self.upx_level_var.get())))
         except Exception:
             level = 5
         level = max(1, min(10, level))
-        lvl_arg = f"-{min(level, 9)}"  # 10 等价于 9
+        lvl_arg = f"-{min(level, 9)}"  # 10 等价 9
 
-        dist_root = self.distpath_entry.get().strip() or "dist"
-        dist_root = os.path.abspath(dist_root)
-
+        dist_root = os.path.abspath(self.distpath_entry.get().strip() or "dist")
         name = (self.name_entry.get().strip()
                 or (os.path.splitext(os.path.basename(self.script_path))[0] if self.script_path else ""))
 
-        # 收集候选文件
-        candidates = []
-        exts = {".exe", ".dll", ".pyd", ".so", ".dylib"}
-
+        # 收集候选
+        candidates, exts = [], {".exe", ".dll", ".pyd", ".so", ".dylib"}
         if self.mode_var.get() == "-F":
             exe_name = f"{name}.exe" if sys.platform.startswith('win') else name
             exe_path = os.path.join(dist_root, exe_name)
@@ -853,21 +1038,18 @@ class PyInstallerGUI:
         else:
             folder = os.path.join(dist_root, name)
             search_root = folder if os.path.isdir(folder) else dist_root
-            for root, _dirs, files in os.walk(search_root):
+            for root_dir, _dirs, files in os.walk(search_root):
                 for f in files:
                     ext = os.path.splitext(f)[1].lower()
                     if ext in exts:
-                        path = os.path.join(root, f)
+                        path = os.path.join(root_dir, f)
                         if not self._upx_is_excluded(path):
                             candidates.append(path)
 
-        # 去重
-        uniq = []
-        seen = set()
+        uniq, seen = [], set()
         for p in candidates:
             if p not in seen and os.path.isfile(p):
-                uniq.append(p)
-                seen.add(p)
+                uniq.append(p); seen.add(p)
 
         if not uniq:
             self.add_to_console("[INFO] 没有可进行 UPX 压缩的目标文件。\n")
@@ -884,30 +1066,35 @@ class PyInstallerGUI:
             "consider using --force",
         )
 
+        main_exe_abs = None
+        if self.mode_var.get() == "-D":
+            main_name = self.name_entry.get().strip()
+            if main_name:
+                main_exe_abs = os.path.abspath(os.path.join(dist_root, main_name, f"{main_name}.exe"))
+
         for path in uniq:
+            if self.mode_var.get() == "-D" and self.upx_external_dlls_only_var.get():
+                if main_exe_abs and os.path.abspath(path) == main_exe_abs:
+                    self.add_to_console(f"[UPX] Skip main EXE (DLL/PYD only): {os.path.relpath(path, dist_root)}\n")
+                    continue
+
             rel = os.path.relpath(path, dist_root)
             try:
                 res = subprocess.run(base_cmd + [path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 out = (res.stdout or "").strip()
 
                 if res.returncode == 0:
-                    self.add_to_console(f"[UPX] Packed: {rel}\n")
-                    continue
-
+                    self.add_to_console(f"[UPX] Packed: {rel}\n"); continue
                 if "Already packed" in out or "AlreadyPackedException" in out:
-                    self.add_to_console(f"[UPX] Skipped (already packed): {rel}\n")
-                    continue
+                    self.add_to_console(f"[UPX] Skipped (already packed): {rel}\n"); continue
 
                 if any(m in out for m in CFG_MARKERS):
-                    # 未勾選 --force 時，提示可在基本設置勾選；若已勾選 --force 仍失敗，走一般失敗分支
                     if not self.upx_force_var.get():
                         self.add_to_console(self._("upx_cfg_unsupported_skip").format(name=rel) + "\n")
                         self.add_colored(self._("upx_cfg_hint_enable_force") + "\n", tag='green')
                         continue
 
-                # 其它失败
                 self.add_to_console(f"[UPX] Failed ({res.returncode}): {rel}\n{out}\n")
-
             except Exception as e:
                 self.add_to_console(f"[UPX] Error: {rel} -> {e}\n")
 
@@ -923,14 +1110,14 @@ class PyInstallerGUI:
             return True
 
         self.add_to_console(self._("upx_not_found_try_install") + "\n")
-        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "upx"]
         try:
-            subprocess.run(pip_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
+            subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "upx"],
+                           check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
         except Exception:
-            pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "upx",
-                       "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
             try:
-                subprocess.run(pip_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
+                subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "upx",
+                                "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"],
+                               check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
             except Exception:
                 self.upx_available = False
                 self.add_to_console(self._("upx_unavailable_disable") + "\n")
@@ -941,6 +1128,7 @@ class PyInstallerGUI:
             self.upx_available = True
             return True
 
+        # 兜底：扫描 site-packages 尝试加入 PATH
         try:
             search_dirs = []
             try:
@@ -955,15 +1143,12 @@ class PyInstallerGUI:
 
             found_dir = None
             for base in search_dirs:
-                for root_dir, dirs, files in os.walk(base):
+                for root_dir, _dirs, files in os.walk(base):
                     for f in files:
                         if f.lower() in ("upx", "upx.exe"):
-                            found_dir = root_dir
-                            break
-                    if found_dir:
-                        break
-                if found_dir:
-                    break
+                            found_dir = root_dir; break
+                    if found_dir: break
+                if found_dir: break
 
             if found_dir:
                 os.environ["PATH"] = found_dir + os.pathsep + os.environ.get("PATH", "")
@@ -978,14 +1163,25 @@ class PyInstallerGUI:
         self.upx_available = False
         return False
 
+    # --------------------- PyInstaller 可用性（构建阶段兜底） ---------------------
+    def ensure_pyinstaller_available(self):
+        try:
+            import PyInstaller  # noqa
+            return True
+        except Exception:
+            messagebox.showerror(self._("ask_install_pyinstaller_title"), self._("msg_dependency_required"), parent=self.root)
+            return False
+
     # --------------------- 命令构建与执行 ---------------------
     def build_command_list(self):
-        # 外压才需要确保 upx 可用；内置由 PyInstaller 自己处理（若缺失会自行警告）
+        if not self.ensure_pyinstaller_available():
+            return None
+
         if self.upx_var.get() and (not self.upx_internal_var.get()):
             self.ensure_upx_available()
 
         if not self.script_path:
-            messagebox.showerror(self._("title_error"), self._("error_select_script"))
+            messagebox.showerror(self._("title_error"), self._("error_select_script"), parent=self.root)
             return None
 
         command = ["pyinstaller"]
@@ -1015,13 +1211,10 @@ class PyInstallerGUI:
         if distpath:
             command.extend(["--distpath", distpath])
 
-        # 是否关闭 PyInstaller 内置 UPX：
-        # - 未勾选“使用UPX” 或 选择“外压” => 添加 --noupx
-        # - 勾选“使用UPX”且“内置” => 不加 --noupx，让 PyInstaller 内置处理
+        # 关闭/启用内置 UPX
         if (not self.upx_var.get()) or (not self.upx_internal_var.get()):
             command.append("--noupx")
         else:
-            # 内置模式下把“UPX 排除（模式）”透传给 PyInstaller
             for pat in self.upx_exclude_list:
                 if pat.strip():
                     command.extend(["--upx-exclude", pat.strip()])
@@ -1073,7 +1266,19 @@ class PyInstallerGUI:
         self.add_to_console(self._("log_full_cmd") + " " + ' '.join(command) + "\n")
         return command
 
+    def _resolve_pyinstaller_invocation(self, command_list):
+        try:
+            exe = command_list[0]
+            if shutil.which(exe):
+                return command_list
+        except Exception:
+            pass
+        return [sys.executable, "-m", "PyInstaller"] + command_list[1:]
+
     def execute_command(self, command_list):
+        if self.mode_var.get() == "-F" and self.upx_external_dlls_only_var.get():
+            self.add_colored(self._("log_only_libs_hint_singlefile") + "\n", tag='green')
+
         self.add_to_console("=" * 60 + "\n")
         self.add_to_console(self._("log_start_build") + "\n")
 
@@ -1081,6 +1286,8 @@ class PyInstallerGUI:
             creationflags = 0
             if sys.platform.startswith('win') and hasattr(subprocess, "CREATE_NO_WINDOW"):
                 creationflags = subprocess.CREATE_NO_WINDOW
+
+            command_list = self._resolve_pyinstaller_invocation(command_list)
 
             process = subprocess.Popen(
                 command_list,
@@ -1091,13 +1298,17 @@ class PyInstallerGUI:
             )
 
             for line in iter(process.stdout.readline, ''):
+                if self.is_closing:
+                    break
                 if line:
                     self.add_to_console(line)
 
             return_code = process.wait()
 
+            if self.is_closing:
+                return -1
+
             if return_code == 0:
-                # 仅外压时执行
                 self.post_upx_compress()
                 self.add_to_console("\n" + self._("log_build_success") + " ✓\n")
                 distpath = self.distpath_entry.get()
@@ -1142,7 +1353,7 @@ class PyInstallerGUI:
 
     def clean_project(self):
         if not self.script_path or not os.path.exists(self.script_path):
-            messagebox.showerror(self._("title_error"), self._("error_select_script"))
+            messagebox.showerror(self._("title_error"), self._("error_select_script"), parent=self.root)
             return
 
         self.add_to_console("\n" + self._("log_cleaning") + "\n")
@@ -1174,7 +1385,88 @@ class PyInstallerGUI:
                 if isinstance(child, ttk.Button):
                     child.config(state=tk.NORMAL if state else tk.DISABLED)
                 traverse(child)
-        traverse(self.root)
+        try:
+            traverse(self.root)
+        except Exception:
+            pass
+
+    # --------------------- 统一关闭处理 ---------------------
+    def on_close(self):
+        if self.is_closing:
+            return
+        self.is_closing = True
+        try:
+            for t in getattr(self, "_tooltips", []):
+                try:
+                    t._unschedule()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:
+            self.root.unbind_all("<MouseWheel>")
+            self.root.unbind_all("<Button-4>")
+            self.root.unbind_all("<Button-5>")
+        except Exception:
+            pass
+        try:
+            self.root.after(50, self.root.destroy)
+        except Exception:
+            try:
+                self.root.destroy()
+            except Exception:
+                pass
+        try:
+            sys.exit(0)
+        except SystemExit:
+            raise
+        except Exception:
+            pass
+
+
+# --------------------- 启动阶段：预检查 PyInstaller ---------------------
+def startup_check_pyinstaller(root, lang_code):
+    _ = get_translator(lang_code)
+    try:
+        import PyInstaller  # noqa
+        return True
+    except Exception:
+        pass
+
+    title = _("ask_install_pyinstaller_title")
+    msg = _("ask_install_pyinstaller")  # 明确告知依赖，不安装无法使用
+    if not messagebox.askyesno(title, msg, parent=root):
+        # 拒绝安装：提示并退出
+        try:
+            messagebox.showerror(title, _("msg_dependency_required"), parent=root)
+        except Exception:
+            pass
+        try:
+            root.destroy()
+        except Exception:
+            pass
+        sys.exit(0)
+
+    # 用户同意：显示等待窗并安装
+    ok = install_pyinstaller_waiting(root, lang_code, _)
+    if ok:
+        # 二次校验
+        try:
+            import PyInstaller  # noqa
+            return True
+        except Exception:
+            pass
+
+    # 安装失败或无法导入：提示并退出
+    try:
+        messagebox.showerror(title, _("msg_install_failed"), parent=root)
+    except Exception:
+        pass
+    try:
+        root.destroy()
+    except Exception:
+        pass
+    sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -1186,6 +1478,20 @@ if __name__ == "__main__":
         root.tk.call('tk', 'scaling', root.winfo_fpixels('1i') / 72.0)
     except Exception:
         pass
-    # 3) 传入 root
+
+    # 3) 启动即检查 PyInstaller（隐藏主窗，检查结束后再显示/或退出）
+    try:
+        root.withdraw()
+    except Exception:
+        pass
+    _lang = detect_language_code()
+    startup_check_pyinstaller(root, _lang)  # 拒绝或失败会在内部退出
+    try:
+        root.deiconify()
+    except Exception:
+        pass
+
+    # 4) 进入主程序
     app = PyInstallerGUI(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
